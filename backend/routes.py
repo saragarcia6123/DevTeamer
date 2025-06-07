@@ -9,6 +9,7 @@ from auth import (
     authenticate_user,
     create_access_token,
     get_current_user,
+    normalize_email,
     ACCESS_TOKEN_EXPIRES,
 )
 
@@ -24,10 +25,14 @@ async def read_users_me(
     return current_user
 
 @users_router.post('/register')
-async def register(user: UserCreate) -> Token:
+async def register(user: UserCreate) -> Token | dict:
+    emailNormalized = normalize_email(user.email)
+    if (not isinstance(emailNormalized, str)):
+        return {'error': emailNormalized.__str__(), 'status': 400}
     hashed_password = get_password_hash(user.password)
     user: User = User(
-        **user.model_dump(exclude={"password"}),
+        **user.model_dump(exclude={"email", "password"}),
+        email=emailNormalized,
         hashed_password=hashed_password
     )
     user: User = db.insert_user(user)

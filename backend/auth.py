@@ -4,6 +4,7 @@ from fastapi import Cookie, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 import jwt
 from jwt.exceptions import InvalidTokenError
+from email_validator import validate_email, EmailNotValidError
 from passlib.context import CryptContext
 from dotenv import load_dotenv
 import os
@@ -71,3 +72,10 @@ async def get_current_user(
         raise credentials_exception
     
     return user
+
+def normalize_email(email: str) -> str | EmailNotValidError:
+    try:
+        emailinfo = validate_email(email)
+        return emailinfo.normalized
+    except EmailNotValidError as e:
+        return e
