@@ -1,0 +1,6 @@
+fastapi[standard]
+sqlmodel
+python-dotenv
+passlib[bcrypt]
+psycopg2-binary
+pyjwt
