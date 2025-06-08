@@ -4,7 +4,7 @@ const API_URL = import.meta.env.VITE_API_URL;
 
 export async function fetchCurrentUser(): Promise<User | null> {
     try {
-        const response = await fetch(`${API_URL}/users/me`, {
+        const response = await fetch(`${API_URL}/users/get-current`, {
             method: "GET",
             headers: { "Content-Type": "application/json" },
             credentials: "include",
@@ -78,7 +78,7 @@ export async function logout() {
 
 export async function userExists(email: string): Promise<boolean> {
     try {
-        const response = await fetch(`${API_URL}/users/exists?username=${encodeURIComponent(email)}`, {
+        const response = await fetch(`${API_URL}/users/check-exists?username=${encodeURIComponent(email)}`, {
             method: 'GET',
         });
 

@@ -1,4 +1,5 @@
-import re
+import os
+from dotenv import load_dotenv
 from typing import Annotated, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import RedirectResponse
@@ -12,26 +13,30 @@ from auth import (
     get_password_hash,
     authenticate_user,
     create_access_token,
-    get_current_user,
+    get_current_user as auth_current_user,
     get_verification_link,
     normalize_email,
     generate_email_verify_token,
     set_access_token_cookie,
     validate_password,
+    validate_username,
 )
 from email_client import send_verification_email
 
-api_router = APIRouter()
+load_dotenv()
 
+DEBUG = os.getenv("DEBUG").lower() == "true"
+
+api_router = APIRouter()
 db = DB()
 
-@api_router.get('/users/me', response_model=UserRead)
+@api_router.get('/users/get-current', response_model=UserRead)
 async def get_current_user(
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(auth_current_user)],
 ):
     return current_user
 
-@api_router.get("/users/exists", response_model=UserExists)
+@api_router.get("/users/check-exists", response_model=UserExists)
 async def user_exists(username: str | None = Query(None)):
     if not username:
         raise HTTPException(status_code=400, detail="Must provide a username/email")
@@ -39,7 +44,7 @@ async def user_exists(username: str | None = Query(None)):
     user = db.get_user(username)
     return {"exists": user and user is not None}
 
-@api_router.get("/users/@{username}", response_model=UserRead)
+@api_router.get("/users/{username}", response_model=UserRead)
 async def get_user_by_username(username: str):
     user = db.get_user_by_username(username)
     if not user:
@@ -56,7 +61,7 @@ async def register(user: UserCreate, request: Request, redirect_uri: Optional[st
     if db.get_user_by_email(email_normalized):
         raise HTTPException(409, 'A user with that email already exists.')
     
-    if not re.match(r'^[a-zA-Z0-9_]{3,}$', user.username):
+    if not validate_username(user.username):
         raise HTTPException(400, 'Username must only contain alphanumeric characters and underscores, and be at least 3 characters long.')
 
     weak_password = validate_password(user.password)
@@ -80,9 +85,12 @@ async def register(user: UserCreate, request: Request, redirect_uri: Optional[st
     token = generate_email_verify_token(email_normalized)
     verification_link = get_verification_link(base_url, token, redirect_uri)
     
-    send_verification_email(email_normalized, verification_link)
-    
-    return {"message": "User registered successfully. Please verify your account using the link sent to your email address."}
+    if not DEBUG:
+        send_verification_email(email_normalized, verification_link)
+        return {"message": "User registered successfully. Please verify your account using the link sent to your email address."}
+    else:
+        print(verification_link)
+        return {"message": verification_link}
 
 @api_router.get('/auth/verify')
 async def verify(
@@ -141,8 +149,8 @@ async def jwt_login(
     response: Response,
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
 ):
-    user: Optional[User] = authenticate_user(form_data.username, form_data.password)
-    
+    user: User = authenticate_user(form_data.username, form_data.password)
+
     access_token = create_access_token(data={"sub": user.username})
     set_access_token_cookie(response, access_token)
     

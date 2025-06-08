@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+import re
 from typing import Literal, Union
 from fastapi import Cookie, HTTPException, Response, status
 import jwt
@@ -13,7 +14,7 @@ from models import User
 
 load_dotenv()
 
-DEBUG = os.getenv("DEBUG")
+DEBUG = os.getenv("DEBUG").lower() == "true"
 SECRET_KEY = os.getenv("SECRET_KEY")
 ACCESS_TOKEN_EXPIRES = timedelta(minutes=30)
 EMAIL_TOKEN_EXPIRES = timedelta(minutes=60)
@@ -50,6 +51,7 @@ def create_access_token(data: dict) -> str:
 async def get_current_user(
     access_token: str | None = Cookie(default=None, include_in_schema=False)
 ):
+    print(access_token)
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Unauthorized.",
@@ -101,8 +103,11 @@ def set_access_token_cookie(response: Response, access_token: str):
         httponly=True,
         max_age=int(ACCESS_TOKEN_EXPIRES.total_seconds()),
         secure=not DEBUG,
-        samesite="none" if DEBUG else "strict",
+        samesite="lax" if DEBUG else "strict",
     )
+
+def validate_username(username: str):
+    return re.match(r'^[a-zA-Z0-9_]{3,}$', username)
 
 def validate_password(password: str):
 

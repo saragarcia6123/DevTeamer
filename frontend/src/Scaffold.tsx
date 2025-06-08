@@ -18,7 +18,7 @@ export default function Scaffold({ children }: { children: ReactNode }) {
 
     return <div className="min-h-screen flex flex-col">
         <Header />
-        <main className="flex flex-1 justify-center align-middle">
+        <main className="flex flex-1 justify-center align-middle p-8 md:p-0">
             {children}
         </main>
         <Footer />
