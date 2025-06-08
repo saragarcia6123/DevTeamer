@@ -1,6 +1,6 @@
 import os
 from typing import Literal
-from sqlmodel import Session, create_engine, SQLModel, select
+from sqlmodel import Session, create_engine, SQLModel, func, select
 from dotenv import load_dotenv
 from models import User
 
@@ -43,14 +43,14 @@ class DB:
     
     def get_user_by_username(self, username: str) -> User | None:
         with Session(self.engine) as session:
-            statement = select(User).where(User.username == username)
+            statement = select(User).where(func.lower(User.username) == username.lower())
             result = session.exec(statement)
             user = result.first()
             return user
     
     def get_user_by_email(self, email: str) -> User | None:
         with Session(self.engine) as session:
-            statement = select(User).where(User.email == email)
+            statement = select(User).where(func.lower(User.email) == email.lower())
             result = session.exec(statement)
             user = result.first()
             return user

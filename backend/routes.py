@@ -1,10 +1,11 @@
+import re
 from typing import Annotated, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from jwt import ExpiredSignatureError, InvalidTokenError
 
-from models import Token, UserCreate, UserRead, User, UserExists
+from models import UserCreate, UserRead, User, UserExists
 from db import DB
 from auth import (
     extract_email_from_jwt,
@@ -17,7 +18,6 @@ from auth import (
     generate_email_verify_token,
     set_access_token_cookie,
     validate_password,
-    ACCESS_TOKEN_EXPIRES,
 )
 from email_client import send_verification_email
 
@@ -47,17 +47,17 @@ async def get_user_by_username(username: str):
     return user
 
 @api_router.post('/auth/register')
-async def register(user: UserCreate, request: Request, redirect_uri: str = Query(...)) -> dict:
+async def register(user: UserCreate, request: Request, redirect_uri: Optional[str] = Query(None)) -> dict:
     email_normalized = normalize_email(user.email)
     
     if (not isinstance(email_normalized, str)):
         raise HTTPException(400, email_normalized.__str__())
     
-    if db.get_user_by_email(user.email):
+    if db.get_user_by_email(email_normalized):
         raise HTTPException(409, 'A user with that email already exists.')
     
-    if len(user.username) < 3:
-        raise HTTPException(400, 'Username must be at least 3 characters long.')
+    if not re.match(r'^[a-zA-Z0-9_]{3,}$', user.username):
+        raise HTTPException(400, 'Username must only contain alphanumeric characters and underscores, and be at least 3 characters long.')
 
     weak_password = validate_password(user.password)
 
@@ -67,9 +67,10 @@ async def register(user: UserCreate, request: Request, redirect_uri: str = Query
     hashed_password = get_password_hash(user.password)
 
     user: User = User(
-        **user.model_dump(exclude={"email", "password"}),
+        **user.model_dump(exclude={"email", "password", "username"}),
         email=email_normalized,
         hashed_password=hashed_password,
+        username=user.username.lower(),
         verified=False
     )
 
@@ -87,7 +88,7 @@ async def register(user: UserCreate, request: Request, redirect_uri: str = Query
 async def verify(
     response: Response,
     token: str,
-    redirect_uri: str = Query(..., alias="redirectUri")
+    redirect_uri: str | None = Query(None, alias="redirectUri")
 ):
     message = ""
     status = 500
@@ -126,8 +127,14 @@ async def verify(
         message = str(e)
         status = 500
 
-    encoded_redirect_uri = f"{redirect_uri}?message={message}&status={status}"
-    return RedirectResponse(url=encoded_redirect_uri)
+    if redirect_uri:
+        encoded_redirect_uri = f"{redirect_uri}?message={message}&status={status}"
+        return RedirectResponse(url=encoded_redirect_uri)
+    else:
+        if status == 200:
+            return {"message": message}
+        else:
+            raise HTTPException(status_code=status, detail=message)
 
 @api_router.post("/auth/login")
 async def jwt_login(

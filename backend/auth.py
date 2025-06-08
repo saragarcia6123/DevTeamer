@@ -73,7 +73,7 @@ async def get_current_user(
 def normalize_email(email: str) -> str | EmailNotValidError:
     try:
         emailinfo = validate_email(email)
-        return emailinfo.normalized
+        return emailinfo.normalized.lower()
     except EmailNotValidError as e:
         return e
 
@@ -88,8 +88,11 @@ def extract_email_from_jwt(token: str) -> str | None:
     email = payload.get("sub")
     return email
 
-def get_verification_link(base_url: str, token: str, redirect_uri: str):
-    return f"{base_url.rstrip('/')}/api/auth/verify?token={token}&redirectUri={redirect_uri}"
+def get_verification_link(base_url: str, token: str, redirect_uri: str | None):
+    link = f"{base_url.rstrip('/')}/api/auth/verify?token={token}"
+    if redirect_uri:
+        link = f"{link}&redirectUri={redirect_uri}"
+    return link
     
 def set_access_token_cookie(response: Response, access_token: str):
     response.set_cookie(
