@@ -61,3 +61,17 @@ class DB:
             session.commit()
             session.refresh(user)
             return user
+    
+    def update_user(self, user: User):
+        with Session(self.engine) as session:
+            db_user = session.get(User, user.id)
+            if not db_user:
+                raise ValueError(f"User with id {user.id} not found")
+
+            for key, value in user.model_dump(exclude_unset=True).items():
+                setattr(db_user, key, value)
+
+            session.add(db_user)
+            session.commit()
+            session.refresh(db_user)
+            return db_user

@@ -1,102 +1,114 @@
-import {  useContext, useRef } from "react";
-import {  UserContext } from "@/contexts/userContext";
+import { useContext, useEffect, useRef, useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
+import z from "zod";
+import type { User } from "@/models/User";
+import { UserContext, useUserContext } from "@/contexts/userContext";
+import { fetchCurrentUser, login, userExists } from "@/auth";
 
 export default function Login() {
 
-    const emailInput = useRef<HTMLInputElement>(null);
-    const passwordInput = useRef<HTMLInputElement>(null);
+  const { user, setUser } = useUserContext();
+  const navigate = useNavigate();
 
-    const context = useContext(UserContext);
-    if (!context) throw new Error("useContext must be within UserProvider");
+  useEffect(() => {
+    if (user) {
+      navigate({ to: "/profile" });
+    }
+  }, [user, navigate]);
 
-    async function submit(e: React.FormEvent<HTMLFormElement>) {
-        e.preventDefault();
-        const email = emailInput.current?.value;
-        const password = passwordInput.current?.value;
+  const emailInput = useRef<HTMLInputElement>(null);
+  const passwordInput = useRef<HTMLInputElement>(null);
 
-        if (!email) {
-            console.error("Email is missing");
-            emailInput.current!.style.borderColor = 'red';
-            return;
-        }
+  const context = useContext(UserContext);
+  if (!context) throw new Error("useContext must be within UserProvider");
 
-        if (!password) {
-            console.error("Password is missing");
-            passwordInput.current!.style.borderColor = 'red';
-            return;
-        }
+  const [step, setStep] = useState<"email" | "password">("email");
+  const [error, setError] = useState<string | null>(null);
 
-        const formData = new URLSearchParams();
-        formData.append("username", email);
-        formData.append("password", password);
+  async function handleEmailSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
 
-        const API_URL = import.meta.env.VITE_API_URL;
+    const email = emailInput.current?.value;
 
-        try {
-            const response = await fetch(`${API_URL}/auth`, {
-                method: "POST",
-                headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                body: formData.toString(),
-                credentials: "include"
-            });
-
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.message || "Login error");
-            }
-
-            const responseJson = await response.json();
-            console.log(responseJson);
-
-            const userResponse = await fetch(`${API_URL}/users/me`, {
-                method: "GET",
-                headers: { "Content-Type": "application/json" },
-                credentials: "include",
-            });
-
-            if (!userResponse.ok) {
-                console.error("Failed to fetch user");
-                return;
-            }
-
-            const userData = await userResponse.json();
-            context!.setUser(userData);
-
-        } catch (err) {
-            console.error("Login error:", err);
-        }
+    if (!email) {
+      emailInput.current!.style.borderColor = "red";
+      return;
     }
 
-    return (
-  <div className="flex justify-center items-center min-h-[400px] bg-gray-100">
-    <form 
-      onSubmit={submit} 
-      className="bg-white p-8 rounded-lg shadow-md w-full max-w-md flex flex-col gap-6"
-    >
-      <input
-        type="email"
-        name="email"
-        ref={emailInput}
-        placeholder="Email"
-        className="px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-        required
-      />
-      <input
-        type="password"
-        name="password"
-        ref={passwordInput}
-        placeholder="Password"
-        className="px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-        required
-      />
-      <button
-        type="submit"
-        className="bg-blue-600 text-white py-3 rounded-md hover:bg-blue-700 transition-colors"
-      >
-        Login
-      </button>
-    </form>
-  </div>
-);
+    if (!z.string().email().safeParse(email).success) {
+      emailInput.current!.style.borderColor = "red";
+      return;
+    }
 
+    const exists = await userExists(email);
+    if (exists) {
+      setStep("password");
+    } else {
+      navigate({ to: "/register", search: { email } });
+    }
+  }
+
+  async function handlePasswordSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+
+    const email = emailInput.current?.value;
+    const password = passwordInput.current?.value;
+
+    if (!password) {
+      if (passwordInput.current) {
+        passwordInput.current.style.borderColor = "red";
+      }
+      return;
+    }
+
+    try {
+      await login(email!, password);
+
+      const userData: User | null = await fetchCurrentUser();
+      if (!userData) {
+        throw new Error("Failed to fetch user data.");
+      }
+
+      setUser(userData);
+      navigate({ to: "/profile" });
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError(String(err));
+      }
+    }
+  }
+
+
+  return (
+
+    <div className="flex flex-col gap-4 justify-center items-center w-full">
+      <form className="w-full" onSubmit={step === "email" ? handleEmailSubmit : handlePasswordSubmit}>
+        <input
+          type="string"
+          name="email"
+          ref={emailInput}
+          placeholder="Email"
+          required
+          disabled={step === "password"}
+        />
+        {step === "password" && (
+          <input
+            type="password"
+            name="password"
+            ref={passwordInput}
+            placeholder="Password"
+            required
+          />
+        )}
+        {error && <p className="text-red-600 text-sm">{error}</p>}
+        <button
+          type="submit"
+        >
+          {step === "email" ? "Next" : "Login"}
+        </button>
+      </form>
+    </div>
+  );
 }

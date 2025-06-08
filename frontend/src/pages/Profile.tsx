@@ -1,28 +1,41 @@
-import React, { useContext } from "react";
-import { UserContext } from "../contexts/userContext";
+import { useNavigate } from "@tanstack/react-router";
+import { useUserContext } from "@/contexts/userContext";
+import { logout } from "@/auth";
 
-const Profile: React.FC = () => {
-  const context = useContext(UserContext);
-
-  if (!context) {
-    throw new Error("Profile must be used within a UserContext.Provider");
-  }
-
-  const { user } = context;
+export default function Profile() {
+  
+  const { user, setUser } = useUserContext();
+  const navigate = useNavigate();
 
   if (!user) {
-    return <p>Please log in to see your profile.</p>;
+    navigate({ to: '/login' });
+    return null;
   }
 
   return (
-    <div className="max-w-md mx-auto p-6 bg-white rounded shadow mt-8">
-      <h1 className="text-2xl font-bold mb-4">Profile</h1>
-      <p><strong>ID:</strong> {user.id}</p>
-      <p><strong>Email:</strong> {user.email}</p>
-      <p><strong>First Name:</strong> {user.first_name}</p>
-      <p><strong>Last Name:</strong> {user.last_name}</p>
+    <div className="max-w-3xl w-full h-full mx-auto p-8 bg-white rounded-lg shadow-md mt-12">
+      <div className="flex flex-1 flex-col h-full">
+        <h1 className="text-3xl font-semibold text-gray-800 mb-6">{user.first_name} {user.last_name}</h1>
+
+        <div className="space-y-4 text-gray-700">
+          <p><span className="font-medium text-gray-600">Email:</span> {user.email}</p>
+        </div>
+
+        <hr className="my-6 border-t border-gray-200" />
+      </div>
+      <div className="flex justify-center">
+        <button
+          onClick={() => {
+            logout();
+            setUser(null);
+            navigate({ to: '/login' });
+          }}
+          className="px-5 py-2 bg-red-500 text-white font-medium rounded-md hover:bg-red-300 transition-colors"
+        >
+          Logout
+        </button>
+      </div>
     </div>
   );
-};
 
-export default Profile;
+};

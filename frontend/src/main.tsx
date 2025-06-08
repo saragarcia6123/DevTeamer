@@ -1,35 +1,105 @@
 import { StrictMode } from 'react'
 import ReactDOM from 'react-dom/client'
 import {
-  Outlet,
   RouterProvider,
   createRootRoute,
   createRoute,
   createRouter,
 } from '@tanstack/react-router'
-import { TanStackRouterDevtools } from '@tanstack/react-router-devtools'
-
 import './styles.css'
+import { z } from 'zod'
 import reportWebVitals from './reportWebVitals.ts'
 
-import App from './App.tsx'
+import Root from './Root.tsx'
+import Home from './pages/Home.tsx'
+import Profile from './pages/Profile.tsx'
+import Login from './pages/Login.tsx'
+import Scaffold from './Scaffold.tsx'
+import Verify from './pages/Verify.tsx'
+import Register from './pages/Register.tsx'
 
 const rootRoute = createRootRoute({
-  component: () => (
-    <>
-      <Outlet />
-      <TanStackRouterDevtools />
-    </>
-  ),
+  component: Root
 })
 
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
-  component: App,
+  component: () => {
+    return (
+      <Scaffold>
+        <Home />
+      </Scaffold>
+    );
+  },
 })
 
-const routeTree = rootRoute.addChildren([indexRoute])
+const loginRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: 'login',
+  component: () => {
+    return (
+      <Scaffold>
+        <Login />
+      </Scaffold>
+    );
+  },
+})
+const registerRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: 'register',
+  validateSearch: z.object({
+    email: z.preprocess((val) => {
+      if (typeof val === 'string') {
+        try {
+          z.string().email().parse(val);
+          return val;
+        } catch {
+          return undefined;
+        }
+      }
+      return undefined;
+    }, z.string().email().optional()),
+  }),
+  component: () => (
+    <Scaffold>
+      <Register />
+    </Scaffold>
+  ),
+});
+
+
+const profileRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: 'profile',
+  component: () => {
+    return (
+      <Scaffold>
+        <Profile />
+      </Scaffold>
+    );
+  },
+})
+
+const verifyRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: 'verify',
+  component: () => {
+    return (
+      <Scaffold>
+        <Verify />
+      </Scaffold>
+    );
+  },
+})
+
+const routeTree = rootRoute.addChildren([
+  indexRoute,
+  loginRoute,
+  registerRoute,
+  verifyRoute,
+  profileRoute,
+])
 
 const router = createRouter({
   routeTree,
@@ -49,6 +119,7 @@ declare module '@tanstack/react-router' {
 const rootElement = document.getElementById('app')
 if (rootElement && !rootElement.innerHTML) {
   const root = ReactDOM.createRoot(rootElement)
+
   root.render(
     <StrictMode>
       <RouterProvider router={router} />
