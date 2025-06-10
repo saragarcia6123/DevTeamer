@@ -6,7 +6,7 @@ export default function Header() {
   const { user } = useUserContext();
 
   return (
-    <header className="bg-gray-900 text-white flex justify-center items-center py-8 gap-2">
+    <header className="flex justify-center items-center py-8 gap-2">
       <nav className="flex flex-row">
         <div className="px-2 font-bold">
           <Link to="/">Home</Link>

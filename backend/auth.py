@@ -1,23 +1,19 @@
 from datetime import datetime, timedelta, timezone
 import re
-from typing import Literal, Union
 from fastapi import Cookie, HTTPException, Response, status
+from fastapi.responses import RedirectResponse
 import jwt
-from jwt.exceptions import InvalidTokenError
+from jwt import ExpiredSignatureError, InvalidTokenError
 from email_validator import validate_email, EmailNotValidError
 from passlib.context import CryptContext
 from password_validator import PasswordValidator
-from dotenv import load_dotenv
-import os
 from db import DB
 from models import User
+from config import Config
 
-load_dotenv()
+config = Config()
 
-DEBUG = os.getenv("DEBUG").lower() == "true"
-SECRET_KEY = os.getenv("SECRET_KEY")
-ACCESS_TOKEN_EXPIRES = timedelta(minutes=30)
-EMAIL_TOKEN_EXPIRES = timedelta(minutes=60)
+ACCESS_TOKEN_EXPIRES = timedelta(days=14)
 JWT_ALGORITHM = "HS256"
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -40,13 +36,22 @@ def authenticate_user(identifier: str, password: str) -> User:
     
     return user
 
-def create_access_token(data: dict) -> str:
+def _encode_jwt(to_encode: dict):
+    encoded_jwt = jwt.encode(to_encode, config.SECRET_KEY, algorithm=JWT_ALGORITHM)
+    return encoded_jwt
+
+def create_jwt_access_token(data: dict) -> str:
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + ACCESS_TOKEN_EXPIRES
     to_encode.update({"exp": int(expire.timestamp())})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=JWT_ALGORITHM)
+    encoded_jwt = _encode_jwt(to_encode)
     return encoded_jwt
 
+def create_jwt_email_verification_token(email: str, expires_minutes: int) -> str:
+    expire = datetime.now(timezone.utc) + timedelta(minutes=expires_minutes)
+    to_encode = {"sub": email, "exp": expire}
+    encoded_jwt = _encode_jwt(to_encode)
+    return encoded_jwt
 
 async def get_current_user(
     access_token: str | None = Cookie(default=None, include_in_schema=False)
@@ -59,7 +64,7 @@ async def get_current_user(
     if access_token is None:
         raise credentials_exception
     try:
-        payload = jwt.decode(access_token, SECRET_KEY, algorithms=[JWT_ALGORITHM])
+        payload = jwt.decode(access_token, config.SECRET_KEY, algorithms=[JWT_ALGORITHM])
         username = payload.get("sub")
         if username is None:
             raise credentials_exception
@@ -79,22 +84,23 @@ def normalize_email(email: str) -> str | EmailNotValidError:
     except EmailNotValidError as e:
         return e
 
-def generate_email_verify_token(email: str) -> str:
-    expire = datetime.now() + EMAIL_TOKEN_EXPIRES
-    to_encode = {"sub": email, "exp": expire}
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=JWT_ALGORITHM)
-    return encoded_jwt
 
 def extract_email_from_jwt(token: str) -> str | None:
-    payload = jwt.decode(token, SECRET_KEY, algorithms=[JWT_ALGORITHM])
+    payload = jwt.decode(token, config.SECRET_KEY, algorithms=[JWT_ALGORITHM])
     email = payload.get("sub")
     return email
 
-def get_verification_link(base_url: str, token: str, redirect_uri: str | None):
-    link = f"{base_url.rstrip('/')}/api/auth/verify?token={token}"
+def _get_link(endpoint: str, base_url: str, token: str, redirect_uri: str | None):
+    link = f"{base_url.rstrip('/')}/api/auth/{endpoint}?token={token}"
     if redirect_uri:
         link = f"{link}&redirectUri={redirect_uri}"
     return link
+
+def get_verification_link(base_url: str, token: str, redirect_uri: str | None):
+    return _get_link("verify", base_url, token, redirect_uri)
+
+def get_2fa_link(base_url: str, token: str, redirect_uri: str | None):
+    return _get_link("verify-login", base_url, token, redirect_uri)
     
 def set_access_token_cookie(response: Response, access_token: str):
     response.set_cookie(
@@ -102,14 +108,16 @@ def set_access_token_cookie(response: Response, access_token: str):
         value=access_token,
         httponly=True,
         max_age=int(ACCESS_TOKEN_EXPIRES.total_seconds()),
-        secure=not DEBUG,
-        samesite="lax" if DEBUG else "strict",
+        secure=not config.DEBUG,
+        samesite="lax" if config.DEBUG else "none",
     )
 
 def validate_username(username: str):
+    """Ensure only alphanumeric and underscore usernames"""
     return re.match(r'^[a-zA-Z0-9_]{3,}$', username)
 
 def validate_password(password: str):
+    """Enforce strict password requirements"""
 
     if PasswordValidator().spaces().validate(password):
         return "Password cannot contain spaces."
@@ -138,3 +146,44 @@ def validate_password(password: str):
         return "Password must contain a special symbol."
     
     return False
+
+def get_user_from_jwt(token: str) -> User:
+    """
+    Attempts to read email from jwt payload
+    Then looks up user by email in the database
+    Will throw HTTPException if any errors occur
+    """
+    try:
+        email = extract_email_from_jwt(token)
+        if not email:
+            raise HTTPException(400, "Token payload missing email.")
+        
+        user = db.get_user_by_email(email)
+        
+        if not user:
+            raise HTTPException(404, "User not found.")
+
+        return user
+    except ExpiredSignatureError:
+        raise HTTPException(400, "Verification token has expired.")
+    except InvalidTokenError:
+        raise HTTPException(400, "Invalid verification token.")
+    except Exception as e:
+        raise HTTPException(500, e)
+
+def response_or_redirect(
+    access_token: str,
+    redirect_uri: str,
+    message: str,
+    status: int
+):
+    if redirect_uri:
+        redirect_response = RedirectResponse(url=f"{redirect_uri}?message={message}&status={status}")
+        set_access_token_cookie(redirect_response, access_token)
+        print(f"redirect uri: {redirect_uri}")
+        return redirect_response
+    else:
+        if status == 200:
+            return {"message": message}
+        else:
+            raise HTTPException(status_code=status, detail=message)

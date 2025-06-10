@@ -6,3 +6,4 @@ psycopg2-binary
 pyjwt
 email-validator
 password-validator
+redis

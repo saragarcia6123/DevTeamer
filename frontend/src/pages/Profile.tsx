@@ -1,16 +1,18 @@
 import { useNavigate } from "@tanstack/react-router";
+import { logout } from "@/api";
 import { useUserContext } from "@/contexts/userContext";
-import { logout } from "@/auth";
+import { useFetchCurrentUser } from "@/hooks/UseFetchUser";
 
 export default function Profile() {
-  
-  const { user, setUser } = useUserContext();
+
+  const { user, error, loading } = useFetchCurrentUser();
+  const { setUser } = useUserContext();
+
   const navigate = useNavigate();
 
-  if (!user) {
-    navigate({ to: '/login' });
-    return null;
-  }
+  if (loading) return <p>Loading user data...</p>;
+  if (error) return <p>Error: {error.message}</p>;
+  if (!user) return <p>Error fetching user</p>
 
   return (
     <div className="max-w-3xl w-full h-full mx-auto p-8 bg-white rounded-lg shadow-md mt-12">
@@ -37,5 +39,5 @@ export default function Profile() {
       </div>
     </div>
   );
-
 };
+

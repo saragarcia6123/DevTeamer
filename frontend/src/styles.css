@@ -1,17 +1,41 @@
 @import "tailwindcss";
 
+body {
+  @apply bg-white dark:bg-gray-950 text-black dark:text-white;
+}
+
 form {
-  @apply w-full bg-white p-8 border-gray-300 shadow-md flex flex-col gap-6;
+  @apply w-full p-8 shadow-md flex flex-col gap-4;
+}
+
+* {
+  @apply border-gray-800 dark:border-gray-400;
 }
 
 form, .form-info {
-  @apply max-w-md border-1 bg-white rounded-lg w-full p-8;
+  @apply max-w-md border-1 rounded-lg w-full p-8;
 }
 
 form input {
-  @apply w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500;
+  @apply w-full px-4 py-3 border rounded-md focus:outline-none focus:ring-white focus:ring-1;
 }
 
-form button {
-  @apply bg-blue-600 text-white py-3 rounded-md hover:bg-blue-700 transition-colors
+button {
+  @apply bg-blue-500 text-white py-3 rounded-md hover:bg-blue-400 transition-colors
+}
+
+.slide-in-from-right {
+  animation: slideInFromRight 0.5s ease-out forwards;
+  opacity: 0; /* Start hidden */
+}
+
+@keyframes slideInFromRight {
+  0% {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
 }

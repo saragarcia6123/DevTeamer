@@ -1,13 +1,12 @@
 import { useContext, useEffect, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import z from "zod";
-import type { User } from "@/models/User";
 import { UserContext, useUserContext } from "@/contexts/userContext";
-import { fetchCurrentUser, login, userExists } from "@/auth";
+import { login, userExists } from "@/api";
 
 export default function Login() {
 
-  const { user, setUser } = useUserContext();
+  const { user } = useUserContext();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -63,14 +62,7 @@ export default function Login() {
 
     try {
       await login(email!, password);
-
-      const userData: User | null = await fetchCurrentUser();
-      if (!userData) {
-        throw new Error("Failed to fetch user data.");
-      }
-
-      setUser(userData);
-      navigate({ to: "/profile" });
+      navigate({ to: `/confirm-login?email=${email}` })
     } catch (err) {
       if (err instanceof Error) {
         setError(err.message);
@@ -82,25 +74,23 @@ export default function Login() {
 
 
   return (
-
-    <div className="flex flex-col gap-4 justify-center items-center w-full">
-      <form className="w-full" onSubmit={step === "email" ? handleEmailSubmit : handlePasswordSubmit}>
+    <div className="flex flex-col justify-center items-center w-full">
+      <form onSubmit={step === "email" ? handleEmailSubmit : handlePasswordSubmit}>
         <input
           type="string"
           name="email"
           ref={emailInput}
           placeholder="Email"
           required
-          disabled={step === "password"}
         />
         {step === "password" && (
           <input
-            type="password"
-            name="password"
-            ref={passwordInput}
-            placeholder="Password"
-            required
-          />
+              type="password"
+              name="password"
+              ref={passwordInput}
+              placeholder="Password"
+              required
+            />
         )}
         {error && <p className="text-red-600 text-sm">{error}</p>}
         <button

@@ -1,12 +1,10 @@
-import os
 from typing import Literal
 from sqlmodel import Session, create_engine, SQLModel, func, select
-from dotenv import load_dotenv
+
 from models import User
+from config import Config
 
 class DB:
-
-    engine = None
 
     def __new__(cls):
         if not hasattr(cls, 'instance'):
@@ -15,16 +13,10 @@ class DB:
         return cls.instance
 
     def _init(self):
-        load_dotenv()
-        DB_USER = os.getenv("DB_USER")
-        DB_PASSWORD = os.getenv("DB_PASSWORD")
-        DB_HOST = os.getenv("DB_HOST") or 'localhost'
-        DB_PORT = os.getenv("DB_PORT") or '5432'
-        DB_NAME = os.getenv("DB_NAME")
+        config = Config()
+        DB_URL = f"postgresql+psycopg2://{config.DB_USER}:{config.DB_PASSWORD}@{config.DB_HOST}:{config.DB_PORT}/{config.DB_NAME}"
 
-        DB_URL = f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
-
-        self.engine = create_engine(DB_URL, echo=False)
+        self.engine = create_engine(DB_URL)
         SQLModel.metadata.create_all(self.engine)
 
     def get_users(self):
