@@ -7,7 +7,7 @@ from jwt import ExpiredSignatureError, InvalidTokenError
 from email_validator import validate_email, EmailNotValidError
 from passlib.context import CryptContext
 from password_validator import PasswordValidator
-from db import DB
+from db_client import DBClient
 from models import User
 from config import Config
 
@@ -17,7 +17,7 @@ ACCESS_TOKEN_EXPIRES = timedelta(days=14)
 JWT_ALGORITHM = "HS256"
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-db = DB()
+db = DBClient()
 
 def verify_password(plain_password, hashed_password) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
@@ -26,6 +26,10 @@ def get_password_hash(password) -> str:
     return pwd_context.hash(password)
 
 def authenticate_user(identifier: str, password: str) -> User:
+    currentUser = get_current_user()
+    if (currentUser):
+        raise HTTPException(400, "Already authenticated.")
+    
     user = db.get_user(identifier)
 
     if not user or not verify_password(password, user.hashed_password):
@@ -56,7 +60,6 @@ def create_jwt_email_verification_token(email: str, expires_minutes: int) -> str
 async def get_current_user(
     access_token: str | None = Cookie(default=None, include_in_schema=False)
 ):
-    print(access_token)
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Unauthorized.",
@@ -177,13 +180,14 @@ def response_or_redirect(
     message: str,
     status: int
 ):
+    response = None
     if redirect_uri:
-        redirect_response = RedirectResponse(url=f"{redirect_uri}?message={message}&status={status}")
-        set_access_token_cookie(redirect_response, access_token)
-        print(f"redirect uri: {redirect_uri}")
-        return redirect_response
+        response = RedirectResponse(url=f"{redirect_uri}?message={message}&status={status}")
     else:
         if status == 200:
-            return {"message": message}
+            response = Response(message, 200)
         else:
             raise HTTPException(status_code=status, detail=message)
+    
+    set_access_token_cookie(response, access_token)
+    return response

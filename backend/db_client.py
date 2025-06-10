@@ -4,11 +4,11 @@ from sqlmodel import Session, create_engine, SQLModel, func, select
 from models import User
 from config import Config
 
-class DB:
+class DBClient:
 
     def __new__(cls):
         if not hasattr(cls, 'instance'):
-            cls.instance = super(DB, cls).__new__(cls)
+            cls.instance = super(DBClient, cls).__new__(cls)
             cls.instance._init()
         return cls.instance
 
@@ -53,6 +53,13 @@ class DB:
             session.commit()
             session.refresh(user)
             return user
+    
+    def delete_user(self, user_id: int):
+        with Session(self.engine) as session:
+            user = session.get(User, user_id)
+            if user:
+                session.delete(user)
+                session.commit()
     
     def update_user(self, user: User):
         with Session(self.engine) as session:

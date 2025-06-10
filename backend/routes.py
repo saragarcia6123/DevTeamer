@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.security import OAuth2PasswordRequestForm
 
 from models import UserCreate, UserRead, User, UserExists
-from db import DB
+from db_client import DBClient
 from redis_client import RedisClient
 from auth import (
     get_2fa_link,
@@ -25,7 +25,7 @@ from config import Config
 
 config = Config()
 api_router = APIRouter()
-db = DB()
+db = DBClient()
 r = RedisClient().r
 
 @api_router.get('/users/get-current', response_model=UserRead)
@@ -54,6 +54,10 @@ async def get_user_by_username(
 
 @api_router.post('/auth/register')
 async def register(request: Request, user: UserCreate, redirect_uri: Optional[str] = Query(None)) -> dict:
+    currentUser = auth_current_user()
+    if (currentUser):
+        raise HTTPException(400, "Please logout before registering.")
+    
     email_normalized = normalize_email(user.email)
     
     if (not isinstance(email_normalized, str)):
@@ -107,6 +111,8 @@ async def verify(
 
     message = ""
     status = 500
+    access_token = ""
+    user = None
 
     try:
         user = get_user_from_jwt(token)
@@ -128,8 +134,12 @@ async def verify(
     except HTTPException as e:
         message = e.detail
         status = e.status_code
+
+        # Delete user on failed register attempt
+        if user:
+            db.delete_user(user.id)
     
-    return response_or_redirect(redirect_uri, message, status)
+    return response_or_redirect(access_token, redirect_uri, message, status)
 
 @api_router.post("/auth/login")
 async def request_login(
@@ -169,9 +179,6 @@ async def verify_login(
     status = 500
     access_token = ""
 
-    print("VERIFYING...")
-    print(f"REDIRECT URI: {redirect_uri}")
-
     try:
         # Ensure login token is only used once
         token_state = await r.get(token)
@@ -193,7 +200,6 @@ async def verify_login(
     finally:
         await r.delete(token)
     
-    print("VERIFYING1...")
     return response_or_redirect(access_token, redirect_uri, message, status)
 
 @api_router.post("/auth/logout")

@@ -13,19 +13,24 @@ class Config:
     def _init(self):
         load_dotenv()
         
+        # Core
         debug_value = os.getenv("DEBUG", "false").lower()
         self.DEBUG = debug_value in ("true", "1", "yes")
+        self.ALLOW_ORIGINS = os.getenv("ALLOW_ORIGINS").split(',')
         self.SECRET_KEY = os.getenv("SECRET_KEY")
 
+        # PostgreSQL
         self.DB_USER = os.getenv("DB_USER")
         self.DB_PASSWORD = os.getenv("DB_PASSWORD")
-        self.DB_HOST = os.getenv("DB_HOST") or 'localhost'
-        self.DB_PORT = os.getenv("DB_PORT") or '5432'
+        self.DB_HOST = os.getenv("DB_HOST")
+        self.DB_PORT = os.getenv("DB_PORT")
         self.DB_NAME = os.getenv("DB_NAME")
 
+        # Redis
         self.REDIS_HOST = os.getenv("REDIS_HOST") or 'localhost'
         self.REDIS_PORT = os.getenv("REDIS_PORT") or '6379'
         self.REDIS_DB = os.getenv("REDIS_DB") or '0'
 
+        # SMTP
         self.EMAIL_ADDRESS = os.getenv("EMAIL_ADDRESS")
         self.EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
