@@ -48,7 +48,7 @@ export default function Register() {
 
         try {
             await register(payload);
-            navigate({ to: `/register-success?email=${email}` })
+            navigate({ to: `/register-success?email=${emailRef.current?.value}` })
         } catch (err) {
             if (err instanceof Error) {
                 setError(err.message);

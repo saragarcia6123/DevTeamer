@@ -11,12 +11,12 @@ This project uses [FastAPI](https://fastapi.tiangolo.com/) for the backend and [
 ---
 
 - #### /auth/register — User registration
-    ↪ Response (dev) — **Verify link** or **HTTPError**
+    ↪ Response (dev) — **Verify link**
 
-    ↪ Response (prod) — **Message** or **HTTPError**
+    ↪ Response (prod) — **Message**
     
     - **User Data ✱** — [**email**, **password**, **username**, first name, last name]
-    - **Redirect URI** — Where to go after verification link
+    - **Redirect URI** — Page to redirect to after verification
 
 ---
 
@@ -29,20 +29,27 @@ This project uses [FastAPI](https://fastapi.tiangolo.com/) for the backend and [
 ---
 
 - #### /auth/login — Logging in with email or username
-    ↪ Response (dev) — **2FA link** or **HTTPError**
+    ↪ Response (dev) — **2FA link**
 
-    ↪ Response (prod) — **Message** or **HTTPError**
+    ↪ Response (prod) — **Message**
 
     - **User Data ✱** — [**email**, **password**]
-    - **Redirect URI** — Where to go after 2FA link
+    - **Redirect URI** — Page to redirect to after 2FA login
 
 ---
 
-- #### /auth/verify-login — Confirming login via 2FA
+- #### /auth/verify-login — Confirm login via 2FA
     ↪ Response or Redirect — [**message**, **status**, **HTTP-only JWT Cookie**]
 
-    - **Token** — Short-lived JWT Token generated during login
-    - **Redirect URI** — Handed over from login
+    - **Token ✱** — Short-lived JWT Token generated during login
+    - **Redirect URI** — Page to redirect to handed over from login
+
+---
+
+- #### /auth/resend-verification — Confirm login via 2FA
+    ↪ Response or Redirect — [**message**]
+
+    - **Redirect URI** — Page to redirect to after verification
 
 ---
 
@@ -91,9 +98,10 @@ This project uses [FastAPI](https://fastapi.tiangolo.com/) for the backend and [
 1. Client makes request to /auth/login with email/username and password
 2. Server checks existence of user in SQL database
 3. Password is validated using bcrypt
-5. JWT token is generated and sent to email via a link to confirm login with 2FA
-6. User clicks the link and request is made to /auth/confirm-login
-7. JWT is validated.
-8. A long-lived HTTP-only JWT token is generated
-9. The token is injected into the response cookie
-10. The client receives the repsonse with the cookie and is now authorised
+4. JWT token is generated and sent to email via a link to confirm login with 2FA
+5. User clicks the link and request is made to /auth/confirm-login
+6. JWT is validated.
+7. A long-lived HTTP-only JWT token is generated
+8. The token is injected into the response cookie
+9. The client receives the repsonse with the cookie and is now authorised
+10. Subsequent requests made to the API must have credentials included and will be auto authenticated

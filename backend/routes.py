@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from typing import Annotated, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.security import OAuth2PasswordRequestForm
@@ -52,10 +53,17 @@ async def get_user_by_username(
     return user
 
 @api_router.post('/auth/register')
-async def register(request: Request, user: UserCreate, redirect_uri: Optional[str] = Query(None)) -> dict:
-    currentUser = auth_current_user()
-    if (currentUser):
-        raise HTTPException(400, "Please logout before registering.")
+async def register(
+    request: Request,
+    user: UserCreate,
+    redirect_uri: Optional[str] = Query(None)
+) -> dict:
+    try:
+        currentUser = await auth_current_user()
+        if (currentUser):
+            raise HTTPException(400, "Please logout before registering.")
+    except(HTTPException):
+        pass
     
     email_normalized = normalize_email(user.email)
     
@@ -97,6 +105,50 @@ async def register(request: Request, user: UserCreate, redirect_uri: Optional[st
         return {"message": "User registered successfully. Please verify your account using the link sent to your email address."}
     else:
         return {"message": verification_link}
+
+@api_router.get('/auth/resend-verification')
+async def resend_verification_email(
+    request: Request,
+    username: str,
+    redirect_uri: Optional[str] = Query(None),
+):
+    user: User | None = db.get_user(username)
+    if not user:
+        raise HTTPException(404, "Could not find a user with that email or username")
+
+    if user.verified:
+        return {"message": "User already verified."}
+    
+    COOLDOWN_SECONDS = 60
+    now = datetime.now(timezone.utc)
+
+    # Check last resend request
+    last_request_time_key = f"{user.email}_LAST_VERIFY_REQUEST"
+    last_request_time_str = await r.get(last_request_time_key)
+
+    if last_request_time_str:
+        last_request_time = datetime.fromisoformat(last_request_time_str.decode())
+        time_since_last = (now - last_request_time).total_seconds()
+        
+        if time_since_last < COOLDOWN_SECONDS:
+            raise HTTPException(
+                status_code=429,
+                detail=f"Please wait {int(COOLDOWN_SECONDS - time_since_last)} seconds before requesting again."
+            )
+
+    # Update Redis with new timestamp
+    await r.set(last_request_time_key, now.isoformat(), ex=COOLDOWN_SECONDS)
+
+    base_url = str(request.base_url).rstrip('/')
+    token = create_jwt_email_verification_token(user.email, 30)
+    verification_link = get_verification_link(base_url, token, redirect_uri) # goes to /verify
+    
+    if not config.DEBUG:
+        send_verification_email(user.email, verification_link)
+        return {"message": f"A link has been sent to {user.email}."}
+    else:
+        return {"message": verification_link}
+
 
 @api_router.get('/auth/verify')
 async def verify(

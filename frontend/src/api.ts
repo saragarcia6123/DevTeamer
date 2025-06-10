@@ -25,7 +25,7 @@ const ENDPOINTS = {
     'logout': '/auth/logout',
     'register': '/auth/register',
     'userExists': '/users/check-exists',
-
+    'resendVerification': '/auth/resend-verification',
 }
 
 async function apiFetch<T>({ method, endpoint, headers, body }: fetchInterface): Promise<T> {
@@ -102,6 +102,17 @@ export async function register(formData: UserRegister) {
     });
 
     return responseJSON;
+}
+export async function resendVerification(username: string): Promise<string> {
+    // Where to go after the 2fa verify link is clicked
+    type ResponseType = {message: string}
+
+    const responseJSON: ResponseType = await apiFetch<ResponseType>({
+        method: "GET",
+        endpoint: `${ENDPOINTS['resendVerification']}?username=${username}`,
+    });
+
+    return responseJSON.message;
 }
 
 export async function logout() {

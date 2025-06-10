@@ -26,13 +26,24 @@ def get_password_hash(password) -> str:
     return pwd_context.hash(password)
 
 def authenticate_user(identifier: str, password: str) -> User:
-    currentUser = get_current_user()
-    if (currentUser):
-        raise HTTPException(400, "Already authenticated.")
-    
-    user = db.get_user(identifier)
+    try:
+        currentUser = get_current_user()
+        if (currentUser):
+            raise HTTPException(400, "Already authenticated.")
+    except HTTPException:
+        pass
 
-    if not user or not verify_password(password, user.hashed_password):
+    user = db.get_user(identifier)
+    password_ok = verify_password(password, user.hashed_password)
+
+    if config.DEBUG:
+        if not user:
+            raise HTTPException(404, f'User with email or username {identifier} not found.')
+    
+        if not password_ok:
+            raise HTTPException(400, "Invalid password")
+    
+    elif not user or not password_ok:
         raise HTTPException(400, 'Authentication error.')
 
     if not user.verified:
@@ -57,7 +68,7 @@ def create_jwt_email_verification_token(email: str, expires_minutes: int) -> str
     encoded_jwt = _encode_jwt(to_encode)
     return encoded_jwt
 
-async def get_current_user(
+def get_current_user(
     access_token: str | None = Cookie(default=None, include_in_schema=False)
 ):
     credentials_exception = HTTPException(
