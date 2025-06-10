@@ -19,6 +19,7 @@ import LoginSuccess from './pages/login/LoginSuccess.tsx'
 import Register from './pages/register/Register.tsx'
 import RegisterSuccess from './pages/register/RegisterSuccess.tsx'
 import ConfirmLogin from './pages/login/ConfirmLogin.tsx'
+import VerifySuccess from './pages/verify/VerifySuccess.tsx'
 
 export const optionalEmail = z.preprocess(
   (val) => {
@@ -36,99 +37,53 @@ const rootRoute = createRootRoute({
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
-  component: () => {
-    return (
-      <Scaffold>
-        <Home />
-      </Scaffold>
-    );
-  },
+  component: Home,
 });
 
 const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: 'login',
-  component: () => {
-    return (
-      <Scaffold>
-        <Login />
-      </Scaffold>
-    );
-  },
+  component: Login,
 });
 
 const loginSuccessRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: 'login-success',
   validateSearch: z.object({email: optionalEmail}),
-  component: () => {
-    return (
-      <Scaffold>
-        <LoginSuccess />
-      </Scaffold>
-    );
-  },
+  component: LoginSuccess,
 });
 
 const registerRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: 'register',
   validateSearch: z.object({email: optionalEmail}),
-  component: () => (
-    <Scaffold>
-      <Register />
-    </Scaffold>
-  ),
+  component: Register,
 });
 
 const registerSuccessRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: 'register-success',
   validateSearch: z.object({email: optionalEmail}),
-  component: () => {
-    return (
-      <Scaffold>
-        <RegisterSuccess />
-      </Scaffold>
-    );
-  },
+  component: RegisterSuccess,
 });
 
 const confirmLoginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: 'confirm-login',
   validateSearch: z.object({email: optionalEmail}),
-  component: () => {
-    return (
-      <Scaffold>
-        <ConfirmLogin />
-      </Scaffold>
-    );
-  },
+  component: ConfirmLogin,
 });
 
 const profileRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: 'profile',
-  component: () => {
-    return (
-      <Scaffold>
-        <Profile />
-      </Scaffold>
-    );
-  },
+  component: Profile,
 });
 
 const verifyRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: 'verify',
-  component: () => {
-    return (
-      <Scaffold>
-        <LoginSuccess />
-      </Scaffold>
-    );
-  },
+  component: VerifySuccess,
 });
 
 const routeTree = rootRoute.addChildren([
