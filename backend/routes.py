@@ -15,7 +15,6 @@ from auth import (
     normalize_email,
     create_jwt_email_verification_token,
     response_or_redirect,
-    set_access_token_cookie,
     validate_password,
     validate_username,
     get_user_from_jwt,
@@ -101,7 +100,6 @@ async def register(request: Request, user: UserCreate, redirect_uri: Optional[st
 
 @api_router.get('/auth/verify')
 async def verify(
-    response: Response,
     token: str,
     redirect_uri: str | None = Query(None, alias="redirectUri")
 ):
@@ -111,7 +109,6 @@ async def verify(
 
     message = ""
     status = 500
-    access_token = ""
     user = None
 
     try:
@@ -125,21 +122,13 @@ async def verify(
             user.verified = True
             db.update_user(user)
 
-            # Inject jwt cookie
-            access_token = create_jwt_access_token(data={"sub": user.username})
-            set_access_token_cookie(response, access_token)
-
-            message = "Email verified."
+            message = "Email verified. You may now log in."
             status = 200
     except HTTPException as e:
         message = e.detail
         status = e.status_code
-
-        # Delete user on failed register attempt
-        if user:
-            db.delete_user(user.id)
     
-    return response_or_redirect(access_token, redirect_uri, message, status)
+    return response_or_redirect(None, redirect_uri, message, status)
 
 @api_router.post("/auth/login")
 async def request_login(

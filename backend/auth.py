@@ -175,7 +175,7 @@ def get_user_from_jwt(token: str) -> User:
         raise HTTPException(500, e)
 
 def response_or_redirect(
-    access_token: str,
+    access_token: str | None,
     redirect_uri: str,
     message: str,
     status: int
@@ -189,5 +189,6 @@ def response_or_redirect(
         else:
             raise HTTPException(status_code=status, detail=message)
     
-    set_access_token_cookie(response, access_token)
+    if access_token:
+        set_access_token_cookie(response, access_token)
     return response
