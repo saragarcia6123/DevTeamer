@@ -88,11 +88,12 @@ export async function login(email: string, password: string) {
 }
 
 export async function register(formData: UserRegister) {
-    const redirectUri = `${window.location.origin}/register-success`
+    // Where to go after the 2fa verify link is clicked
+    const redirectUri = `${window.location.origin}/verify-success`
 
     const responseJSON = await apiFetch({
         method: "POST",
-        endpoint: `${ENDPOINTS['register']}?route=login&redirectUri=${encodeURIComponent(redirectUri)}`,
+        endpoint: `${ENDPOINTS['register']}?redirectUri=${encodeURIComponent(redirectUri)}`,
         headers: {
             "Content-Type": "application/json",
             "Accept": "application/json",

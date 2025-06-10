@@ -80,9 +80,9 @@ const profileRoute = createRoute({
   component: Profile,
 });
 
-const verifyRoute = createRoute({
+const verifySuccessRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: 'verify',
+  path: 'verify-success',
   component: VerifySuccess,
 });
 
@@ -93,7 +93,7 @@ const routeTree = rootRoute.addChildren([
   loginSuccessRoute,
   registerRoute,
   registerSuccessRoute,
-  verifyRoute,
+  verifySuccessRoute,
   profileRoute,
 ])
 
