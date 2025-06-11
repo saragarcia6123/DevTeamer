@@ -14,12 +14,12 @@ class DBClient:
 
     def _init(self):
         config = Config()
-        DB_URL = DB_URL = (
-            f"postgresql+psycopg2://{config.DB_USER}:{config.DB_PASSWORD}"
-            f"@{config.DB_HOST}:{config.DB_PORT}/{config.DB_NAME}"
+        PG_URL = PG_URL = (
+            f"postgresql+psycopg2://{config.PG_USER}:{config.PG_PASSWORD}"
+            f"@{config.PG_HOST}:{config.PG_PORT}/{config.PG_NAME}"
         )
 
-        self.engine = create_engine(DB_URL)
+        self.engine = create_engine(PG_URL)
         SQLModel.metadata.create_all(self.engine)
 
     def get_users(self):

@@ -47,7 +47,7 @@ async def user_exists(username: str | None = Query(None)):
         )
 
     user = db.get_user(username)
-    return {"exists": user and user is not None}
+    return {"exists": bool(user)}
 
 
 @api_router.get("/users/{username}", response_model=UserRead)

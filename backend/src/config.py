@@ -36,11 +36,11 @@ class Config:
         self.SECRET_KEY = self.getenv_or_throw("SECRET_KEY")
 
         # PostgreSQL
-        self.DB_USER = self.getenv_or_throw("DB_USER")
-        self.DB_PASSWORD = self.getenv_or_throw("DB_PASSWORD")
-        self.DB_HOST = self.getenv_or_throw("DB_HOST")
-        self.DB_PORT = self.getenv_int_or_throw("DB_PORT")
-        self.DB_NAME = self.getenv_or_throw("DB_NAME")
+        self.PG_USER = self.getenv_or_throw("PG_USER")
+        self.PG_PASSWORD = self.getenv_or_throw("PG_PASSWORD")
+        self.PG_HOST = self.getenv_or_throw("PG_HOST")
+        self.PG_PORT = self.getenv_int_or_throw("PG_PORT")
+        self.PG_NAME = self.getenv_or_throw("PG_NAME")
 
         # Redis
         self.REDIS_HOST = self.getenv_or_throw("REDIS_HOST")

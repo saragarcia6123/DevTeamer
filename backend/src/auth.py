@@ -1,6 +1,5 @@
 from datetime import datetime, timedelta, timezone
 import re
-from typing import Literal
 from fastapi import Cookie, HTTPException, Response, status
 from fastapi.responses import RedirectResponse
 import jwt
