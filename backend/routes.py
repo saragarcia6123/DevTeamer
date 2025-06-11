@@ -30,19 +30,25 @@ db = DBClient()
 
 r = RedisClient().r
 
+
 @api_router.get('/users/get-current', response_model=UserRead)
 async def get_current_user(
     current_user: Annotated[User, Depends(auth_current_user)],
 ):
     return current_user
 
+
 @api_router.get("/users/check-exists", response_model=UserExists)
 async def user_exists(username: str | None = Query(None)):
     if not username:
-        raise HTTPException(status_code=400, detail="Must provide a username/email")
-    
+        raise HTTPException(
+            status_code=400,
+            detail="Must provide a username/email"
+        )
+
     user = db.get_user(username)
     return {"exists": user and user is not None}
+
 
 @api_router.get("/users/{username}", response_model=UserRead)
 async def get_user_by_username(
@@ -54,6 +60,7 @@ async def get_user_by_username(
         raise HTTPException(status_code=404, detail="User not found")
     return user
 
+
 @api_router.post('/auth/register')
 async def register(
     request: Request,
@@ -64,28 +71,35 @@ async def register(
         currentUser = auth_current_user()
         if (currentUser):
             raise HTTPException(400, "Please logout before registering.")
-    except(HTTPException):
+    except (HTTPException):
         pass
-    
+
     try:
         email_normalized = normalize_email(user.email)
     except EmailNotValidError as e:
         raise HTTPException(400, e.__str__())
-    
+
     if db.get_user_by_email(email_normalized):
         raise HTTPException(409, 'A user with that email already exists.')
-    
+
     if db.get_user_by_username(user.username):
         raise HTTPException(409, 'A user with that username already exists.')
-    
+
     if not validate_username(user.username):
-        raise HTTPException(400, 'Username must only contain alphanumeric characters and underscores, and be at least 3 characters long.')
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Username must only contain",
+                "alphanumeric characters and underscores,",
+                "and be at least 3 characters long."
+            )
+        )
 
     weak_password = validate_password(user.password)
 
     if weak_password:
         raise HTTPException(400, weak_password)
-    
+
     hashed_password = get_password_hash(user.password)
 
     db_user: User = User(
@@ -100,13 +114,24 @@ async def register(
 
     base_url = str(request.base_url).rstrip('/')
     token = create_jwt_email_verification_token(email_normalized, 30)
-    verification_link = get_verification_link(base_url, token, redirect_uri) # goes to /verify
-    
+    verification_link = get_verification_link(
+        base_url=base_url,
+        token=token,
+        redirect_uri=redirect_uri
+    )  # goes to /verify
+
     if not config.DEBUG:
         send_verification_email(email_normalized, verification_link)
-        return {"message": "User registered successfully. Please verify your account using the link sent to your email address."}
+        return {
+            "message": (
+                "User registered successfully.",
+                "Please verify your account using the link",
+                "sent to your email address."
+            )
+        }
     else:
         return {"message": verification_link}
+
 
 @api_router.get('/auth/resend-verification')
 async def resend_verification_email(
@@ -116,11 +141,14 @@ async def resend_verification_email(
 ):
     user: User | None = db.get_user(username)
     if not user:
-        raise HTTPException(404, "Could not find a user with that email or username")
+        raise HTTPException(
+            status_code=404,
+            detail="Could not find a user with that email or username"
+        )
 
     if user.verified:
         return {"message": "User already verified."}
-    
+
     COOLDOWN_SECONDS = 60
     now = datetime.now(timezone.utc)
 
@@ -129,13 +157,19 @@ async def resend_verification_email(
     last_request_time_str = await r.get(last_request_time_key)
 
     if last_request_time_str:
-        last_request_time = datetime.fromisoformat(last_request_time_str.decode())
+        last_request_time = datetime.fromisoformat(
+            last_request_time_str.decode()
+        )
         time_since_last = (now - last_request_time).total_seconds()
-        
+
         if time_since_last < COOLDOWN_SECONDS:
             raise HTTPException(
                 status_code=429,
-                detail=f"Please wait {int(COOLDOWN_SECONDS - time_since_last)} seconds before requesting again."
+                detail=(
+                    "Please wait",
+                    f"{int(COOLDOWN_SECONDS - time_since_last)}",
+                    "seconds before requesting again."
+                )
             )
 
     # Update Redis with new timestamp
@@ -143,8 +177,12 @@ async def resend_verification_email(
 
     base_url = str(request.base_url).rstrip('/')
     token = create_jwt_email_verification_token(user.email, 30)
-    verification_link = get_verification_link(base_url, token, redirect_uri) # goes to /verify
-    
+    verification_link = get_verification_link(
+        base_url=base_url,
+        token=token,
+        redirect_uri=redirect_uri
+    )  # goes to /verify
+
     if not config.DEBUG:
         send_verification_email(user.email, verification_link)
         return {"message": f"A link has been sent to {user.email}."}
@@ -155,10 +193,14 @@ async def resend_verification_email(
 @api_router.get('/auth/verify')
 async def verify(
     token: str,
-    redirect_uri: str | None = Query(None, alias="redirectUri")
+    redirect_uri: str | None = Query(
+        default=None,
+        alias="redirectUri"
+    )
 ):
     """
-    Endpoint where verification link sent to user after registration directs to.
+    Endpoint where verification link sent to user
+    after registration directs to.
     """
 
     message = ""
@@ -181,8 +223,9 @@ async def verify(
     except HTTPException as e:
         message = e.detail
         status = e.status_code
-    
+
     return response_or_redirect(None, redirect_uri, message, status)
+
 
 @api_router.post("/auth/login")
 async def request_login(
@@ -194,21 +237,33 @@ async def request_login(
     user: User = authenticate_user(form_data.username, form_data.password)
 
     email_normalized = normalize_email(user.email)
-    
+
     base_url = str(request.base_url).rstrip('/')
 
     # Proceed to 2fa
-    token = create_jwt_email_verification_token(email_normalized, 5)
-    await r.set(token, "UNUSED") # set token unused
+    token = create_jwt_email_verification_token(
+        email=email_normalized,
+        expires_minutes=5
+    )
+    await r.set(token, "UNUSED")  # set token unused
 
-    verification_link = get_2fa_link(base_url, token, redirect_uri)
+    verification_link = get_2fa_link(
+        base_url=base_url,
+        token=token,
+        redirect_uri=redirect_uri
+    )
 
     # Don't send emails in debug
     if not config.DEBUG:
         send_2fa_email(email_normalized, verification_link)
-        return {"message": "Please login using the link sent to your email address."}
+        return {
+            "message": (
+                "Please login using the link sent to your email address."
+            )
+        }
     else:
         return {"message": verification_link}
+
 
 @api_router.get("/auth/verify-login")
 async def verify_login(
@@ -228,7 +283,7 @@ async def verify_login(
         token_state = await r.get(token)
         if token_state != "UNUSED":
             raise HTTPException(409, "Token invalid or already used.")
-        
+
         user = get_user_from_jwt(token)
         access_token = create_jwt_access_token(data={"sub": user.email})
 
@@ -243,8 +298,9 @@ async def verify_login(
         status = e.status_code
     finally:
         await r.delete(token)
-    
+
     return response_or_redirect(access_token, redirect_uri, message, status)
+
 
 @api_router.post("/auth/logout")
 async def logout(response: Response):

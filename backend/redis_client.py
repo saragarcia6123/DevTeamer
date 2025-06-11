@@ -13,7 +13,7 @@ class RedisClient:
 
     def _init(self):
         config = Config()
-        
+
         self.r = redis.Redis(
             host=config.REDIS_HOST,
             port=config.REDIS_PORT,
