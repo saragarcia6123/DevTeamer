@@ -26,6 +26,7 @@ const ENDPOINTS = {
     'register': '/auth/register',
     'userExists': '/users/check-exists',
     'resendVerification': '/auth/resend-verification',
+    'getCurrent': '/users/get-current',
 }
 
 async function apiFetch<T>({ method, endpoint, headers, body }: fetchInterface): Promise<T> {
@@ -62,7 +63,7 @@ export async function fetchCurrentUser(): Promise<User | null> {
 
     const userData: User | null = await apiFetch<User | null>({
         method: "GET",
-        endpoint: "/users/get-current",
+        endpoint: ENDPOINTS['getCurrent'],
     });
 
     return userData;
@@ -75,7 +76,7 @@ export async function login(email: string, password: string) {
     formData.append("username", email);
     formData.append("password", password);
 
-    const redirectUri = `${window.location.origin}/login-success`
+    const redirectUri = `${import.meta.env.VITE_REDIRECT_URI}/login-success`
 
     const responseJSON = await apiFetch({
         method: "POST",
@@ -89,7 +90,7 @@ export async function login(email: string, password: string) {
 
 export async function register(formData: UserRegister) {
     // Where to go after the 2fa verify link is clicked
-    const redirectUri = `${window.location.origin}/verify-success`
+    const redirectUri = `${import.meta.env.VITE_REDIRECT_URI}/verify-success`
 
     const responseJSON = await apiFetch({
         method: "POST",
@@ -105,7 +106,7 @@ export async function register(formData: UserRegister) {
 }
 export async function resendVerification(username: string): Promise<string> {
     // Where to go after the 2fa verify link is clicked
-    const redirectUri = `${window.location.origin}/verify-success`
+    const redirectUri = `${import.meta.env.VITE_REDIRECT_URI}/verify-success`
     type ResponseType = {message: string}
 
     const responseJSON: ResponseType = await apiFetch<ResponseType>({
