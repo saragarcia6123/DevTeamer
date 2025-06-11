@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
-from typing import Annotated, Optional
+from typing import Annotated
+from email_validator import EmailNotValidError
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.security import OAuth2PasswordRequestForm
 
@@ -26,6 +27,7 @@ from config import Config
 config = Config()
 api_router = APIRouter()
 db = DBClient()
+
 r = RedisClient().r
 
 @api_router.get('/users/get-current', response_model=UserRead)
@@ -56,19 +58,19 @@ async def get_user_by_username(
 async def register(
     request: Request,
     user: UserCreate,
-    redirect_uri: Optional[str] = Query(None)
+    redirect_uri: str | None = Query(None)
 ) -> dict:
     try:
-        currentUser = await auth_current_user()
+        currentUser = auth_current_user()
         if (currentUser):
             raise HTTPException(400, "Please logout before registering.")
     except(HTTPException):
         pass
     
-    email_normalized = normalize_email(user.email)
-    
-    if (not isinstance(email_normalized, str)):
-        raise HTTPException(400, email_normalized.__str__())
+    try:
+        email_normalized = normalize_email(user.email)
+    except EmailNotValidError as e:
+        raise HTTPException(400, e.__str__())
     
     if db.get_user_by_email(email_normalized):
         raise HTTPException(409, 'A user with that email already exists.')
@@ -86,7 +88,7 @@ async def register(
     
     hashed_password = get_password_hash(user.password)
 
-    user: User = User(
+    db_user: User = User(
         **user.model_dump(exclude={"email", "password", "username"}),
         email=email_normalized,
         hashed_password=hashed_password,
@@ -94,7 +96,7 @@ async def register(
         verified=False
     )
 
-    user: User = db.insert_user(user)
+    db_user: User = db.insert_user(db_user)
 
     base_url = str(request.base_url).rstrip('/')
     token = create_jwt_email_verification_token(email_normalized, 30)
@@ -110,7 +112,7 @@ async def register(
 async def resend_verification_email(
     request: Request,
     username: str,
-    redirect_uri: Optional[str] = Query(None),
+    redirect_uri: str | None = Query(None),
 ):
     user: User | None = db.get_user(username)
     if not user:
@@ -186,12 +188,13 @@ async def verify(
 async def request_login(
     request: Request,
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
-    redirect_uri: Optional[str] = Query(None, alias='redirectUri'),
+    redirect_uri: str | None = Query(None, alias='redirectUri'),
 ):
     # Will throw exception if error or User is None
     user: User = authenticate_user(form_data.username, form_data.password)
 
     email_normalized = normalize_email(user.email)
+    
     base_url = str(request.base_url).rstrip('/')
 
     # Proceed to 2fa
@@ -210,7 +213,7 @@ async def request_login(
 @api_router.get("/auth/verify-login")
 async def verify_login(
     token: str,
-    redirect_uri: Optional[str] = Query(None, alias='redirectUri'),
+    redirect_uri: str | None = Query(None, alias='redirectUri'),
 ):
     """
     Endpoint where 2fa link sent to user after login directs to.

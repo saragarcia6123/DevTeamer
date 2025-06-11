@@ -9,28 +9,41 @@ class Config:
             cls._instance = super(Config, cls).__new__(cls)
             cls._instance._init()
         return cls._instance
+    
+    def getenv_or_throw(self, key: str) -> str:
+        value: str | None = os.getenv(key)
+        if not value:
+            raise KeyError(f"Missing environment variable: {key}")
+        return value
+    
+    def getenv_int_or_throw(self, key: str) -> int:
+        value: str = self.getenv_or_throw(key)
+        try:
+            value_parsed = int(value)
+            return value_parsed
+        except ValueError as e:
+            raise ValueError(f"Environment variable {key} must be a valid integer")
 
     def _init(self):
         load_dotenv()
         
         # Core
-        debug_value = os.getenv("DEBUG", "false").lower()
-        self.DEBUG = debug_value in ("true", "1", "yes")
-        self.ALLOW_ORIGINS = os.getenv("ALLOW_ORIGINS").split(',')
-        self.SECRET_KEY = os.getenv("SECRET_KEY")
+        self.DEBUG = self.getenv_or_throw("DEBUG").lower() in ("true", "1")
+        self.ALLOW_ORIGINS = self.getenv_or_throw("ALLOW_ORIGINS").split(',')
+        self.SECRET_KEY = self.getenv_or_throw("SECRET_KEY")
 
         # PostgreSQL
-        self.DB_USER = os.getenv("DB_USER")
-        self.DB_PASSWORD = os.getenv("DB_PASSWORD")
-        self.DB_HOST = os.getenv("DB_HOST")
-        self.DB_PORT = os.getenv("DB_PORT")
-        self.DB_NAME = os.getenv("DB_NAME")
+        self.DB_USER = self.getenv_or_throw("DB_USER")
+        self.DB_PASSWORD = self.getenv_or_throw("DB_PASSWORD")
+        self.DB_HOST = self.getenv_or_throw("DB_HOST")
+        self.DB_PORT = self.getenv_int_or_throw("DB_PORT")
+        self.DB_NAME = self.getenv_or_throw("DB_NAME")
 
         # Redis
-        self.REDIS_HOST = os.getenv("REDIS_HOST") or 'localhost'
-        self.REDIS_PORT = os.getenv("REDIS_PORT") or '6379'
-        self.REDIS_DB = os.getenv("REDIS_DB") or '0'
+        self.REDIS_HOST = self.getenv_or_throw("REDIS_HOST")
+        self.REDIS_PORT = self.getenv_int_or_throw("REDIS_PORT")
+        self.REDIS_DB = self.getenv_or_throw("REDIS_DB")
 
         # SMTP
-        self.EMAIL_ADDRESS = os.getenv("EMAIL_ADDRESS")
-        self.EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
+        self.EMAIL_ADDRESS = self.getenv_or_throw("EMAIL_ADDRESS")
+        self.EMAIL_PASSWORD = self.getenv_or_throw("EMAIL_PASSWORD")

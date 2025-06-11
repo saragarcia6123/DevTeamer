@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 import re
+from typing import Literal
 from fastapi import Cookie, HTTPException, Response, status
 from fastapi.responses import RedirectResponse
 import jwt
@@ -19,13 +20,16 @@ JWT_ALGORITHM = "HS256"
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 db = DBClient()
 
-def verify_password(plain_password, hashed_password) -> bool:
+def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
 def get_password_hash(password) -> str:
     return pwd_context.hash(password)
 
 def authenticate_user(identifier: str, password: str) -> User:
+
+    # 1. Check not already authenticated
+
     try:
         currentUser = get_current_user()
         if (currentUser):
@@ -33,25 +37,36 @@ def authenticate_user(identifier: str, password: str) -> User:
     except HTTPException:
         pass
 
-    user = db.get_user(identifier)
+    user: User | None = db.get_user(identifier)
+
+    GenericException = HTTPException(400, 'Authentication error.')
+
+    # 2. Check user exists
+
+    if not user:
+        if config.DEBUG:
+            raise HTTPException(404, f'User with email or username {identifier} not found.')
+        else:
+            raise GenericException
+    
+    # 3. Check password matches
+
     password_ok = verify_password(password, user.hashed_password)
 
-    if config.DEBUG:
-        if not user:
-            raise HTTPException(404, f'User with email or username {identifier} not found.')
-    
-        if not password_ok:
+    if not password_ok:
+        if config.DEBUG:
             raise HTTPException(400, "Invalid password")
-    
-    elif not user or not password_ok:
-        raise HTTPException(400, 'Authentication error.')
+        else:
+            raise GenericException
+
+    # 4. Check user is verified
 
     if not user.verified:
         raise HTTPException(403, 'User not yet verified. Please check your email.')
     
     return user
 
-def _encode_jwt(to_encode: dict):
+def _encode_jwt(to_encode: dict) -> str:
     encoded_jwt = jwt.encode(to_encode, config.SECRET_KEY, algorithm=JWT_ALGORITHM)
     return encoded_jwt
 
@@ -91,12 +106,12 @@ def get_current_user(
     
     return user
 
-def normalize_email(email: str) -> str | EmailNotValidError:
+def normalize_email(email: str) -> str:
     try:
         emailinfo = validate_email(email)
         return emailinfo.normalized.lower()
     except EmailNotValidError as e:
-        return e
+        raise e
 
 
 def extract_email_from_jwt(token: str) -> str | None:
@@ -187,7 +202,7 @@ def get_user_from_jwt(token: str) -> User:
 
 def response_or_redirect(
     access_token: str | None,
-    redirect_uri: str,
+    redirect_uri: str | None,
     message: str,
     status: int
 ):

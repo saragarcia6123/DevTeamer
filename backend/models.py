@@ -8,7 +8,7 @@ class UserBase(SQLModel):
     last_name: str
 
 class User(UserBase, table=True):
-    __tablename__ = "users"
+    __tablename__: str = "users"
     id: int | None = Field(default=None, primary_key=True)
     hashed_password: str
     verified: bool
@@ -23,7 +23,6 @@ class UserRead(UserBase):
 class Token(SQLModel):
     access_token: str
     token_type: str
-
 
 class TokenData(SQLModel):
     username: str | None = None

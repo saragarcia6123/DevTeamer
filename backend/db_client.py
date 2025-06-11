@@ -1,4 +1,3 @@
-from typing import Literal
 from sqlmodel import Session, create_engine, SQLModel, func, select
 
 from models import User
@@ -24,13 +23,12 @@ class DBClient:
             users = session.exec(select(User)).all()
             return users
     
-    def get_user(self, identifier: str) -> User | Literal[False]:
-        user = self.get_user_by_username(identifier)
-        if not user:
-            # If not found by username, try email
+    def get_user(self, identifier: str) -> User | None:
+        user: User | None = None
+        if '@' in identifier:
             user = self.get_user_by_email(identifier)
-        if not user:
-            return False
+        else:
+            user = self.get_user_by_username(identifier)
         return user
     
     def get_user_by_username(self, username: str) -> User | None:

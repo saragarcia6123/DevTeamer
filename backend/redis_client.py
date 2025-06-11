@@ -2,9 +2,8 @@ import redis.asyncio as redis
 
 from config import Config
 
-class RedisClient:
 
-    r = None
+class RedisClient:
 
     def __new__(cls):
         if not hasattr(cls, 'instance'):
