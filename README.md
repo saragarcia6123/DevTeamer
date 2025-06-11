@@ -1,6 +1,30 @@
 # DevTeamer - Find devs to collab with
 
+[![wakatime](https://wakatime.com/badge/user/961b9b73-7fbd-42ec-8eac-034f364eaeaf/project/c7cdfabd-0d57-4067-a8b9-9393319a59b3.svg)](https://wakatime.com/badge/user/961b9b73-7fbd-42ec-8eac-034f364eaeaf/project/c7cdfabd-0d57-4067-a8b9-9393319a59b3)
+
 This project uses [FastAPI](https://fastapi.tiangolo.com/) for the backend and [React](https://react.dev/) for the frontend
+
+## Running Locally
+
+### Pre-requisites
+
+- [Docker](https://www.docker.com/)
+
+### Setup
+
+```sh
+cp ./frontend/.env.example ./frontend/.env
+cp ./backend/.env.example ./backend/.env
+cp ./db/.env.example ./db/.env
+```
+
+*As of right now, the example `.env` configuration should work as-is*
+
+### Command
+
+```sh
+docker compose up
+```
 
 ## Endpoints
 
