@@ -105,11 +105,12 @@ export async function register(formData: UserRegister) {
 }
 export async function resendVerification(username: string): Promise<string> {
     // Where to go after the 2fa verify link is clicked
+    const redirectUri = `${window.location.origin}/verify-success`
     type ResponseType = {message: string}
 
     const responseJSON: ResponseType = await apiFetch<ResponseType>({
         method: "GET",
-        endpoint: `${ENDPOINTS['resendVerification']}?username=${username}`,
+        endpoint: `${ENDPOINTS['resendVerification']}?username=${username}&redirectUri=${redirectUri}`,
     });
 
     return responseJSON.message;

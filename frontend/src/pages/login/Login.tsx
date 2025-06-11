@@ -2,7 +2,8 @@ import { useContext, useEffect, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import z from "zod";
 import { UserContext, useUserContext } from "@/contexts/userContext";
-import { login, userExists } from "@/api";
+import { HTTPError, login, userExists } from "@/api";
+import ResendVerify from "@/components/ResendVerify";
 
 export default function Login() {
 
@@ -23,6 +24,7 @@ export default function Login() {
 
   const [step, setStep] = useState<"email" | "password">("email");
   const [error, setError] = useState<string | null>(null);
+  const [unverified, setUnverified] = useState<boolean>(false);
 
   async function handleEmailSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -64,8 +66,11 @@ export default function Login() {
       await login(email!, password);
       navigate({ to: `/confirm-login?email=${email}` })
     } catch (err) {
-      if (err instanceof Error) {
+      if (err instanceof HTTPError) {
         setError(err.message);
+        if (err.statusCode === 403) {
+          setUnverified(true)
+        }
       } else {
         setError(String(err));
       }
@@ -93,6 +98,7 @@ export default function Login() {
             />
         )}
         {error && <p className="text-red-600 text-sm">{error}</p>}
+        {unverified && <ResendVerify email={emailInput.current!.value}/>}
         <button
           type="submit"
         >
