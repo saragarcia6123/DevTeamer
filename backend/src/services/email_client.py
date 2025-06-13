@@ -1,9 +1,9 @@
 import smtplib
 from email.message import EmailMessage
 
-from config import Config
+from config import _Config
 
-config = Config()
+config = _Config()
 
 
 def send_email(msg: EmailMessage):

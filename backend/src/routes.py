@@ -5,8 +5,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.security import OAuth2PasswordRequestForm
 
 from models import UserCreate, UserRead, User, UserExists
-from db_client import DBClient
-from redis_client import RedisClient
+from services.pg_client import pg_client
+from services.redis_client import redis_client
+
 from auth import (
     get_2fa_link,
     get_password_hash,
@@ -21,14 +22,12 @@ from auth import (
     validate_username,
     get_user_from_jwt,
 )
-from email_client import send_2fa_email, send_verification_email
-from config import Config
+from services.email_client import send_2fa_email, send_verification_email
+from config import config
 
-config = Config()
 api_router = APIRouter()
-db = DBClient()
 
-r = RedisClient().r
+r = redis_client.r
 
 
 @api_router.get('/users/get-current', response_model=UserRead)
@@ -46,7 +45,7 @@ async def user_exists(username: str | None = Query(None)):
             detail="Must provide a username/email"
         )
 
-    user = db.get_user(username)
+    user = pg_client.get_user(username)
     return {"exists": bool(user)}
 
 
@@ -55,7 +54,7 @@ async def get_user_by_username(
     _: Annotated[User, Depends(auth_current_user)],
     username: str
 ):
-    user = db.get_user_by_username(username)
+    user = pg_client.get_user_by_username(username)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return user
@@ -79,10 +78,10 @@ async def register(
     except EmailNotValidError as e:
         raise HTTPException(400, e.__str__())
 
-    if db.get_user_by_email(email_normalized):
+    if pg_client.get_user_by_email(email_normalized):
         raise HTTPException(409, 'A user with that email already exists.')
 
-    if db.get_user_by_username(user.username):
+    if pg_client.get_user_by_username(user.username):
         raise HTTPException(409, 'A user with that username already exists.')
 
     if not validate_username(user.username):
@@ -110,7 +109,7 @@ async def register(
         verified=False
     )
 
-    db_user: User = db.insert_user(db_user)
+    db_user: User = pg_client.insert_user(db_user)
 
     base_url = str(request.base_url).rstrip('/')
     token = create_jwt_email_verification_token(email_normalized, 30)
@@ -139,7 +138,7 @@ async def resend_verification_email(
     username: str,
     redirect_uri: str | None = Query(None),
 ):
-    user: User | None = db.get_user(username)
+    user: User | None = pg_client.get_user(username)
     if not user:
         raise HTTPException(
             status_code=404,
@@ -216,7 +215,7 @@ async def verify(
         else:
             # Mark user as verified
             user.verified = True
-            db.update_user(user)
+            pg_client.update_user(user)
 
             message = "Email verified. You may now log in."
             status = 200

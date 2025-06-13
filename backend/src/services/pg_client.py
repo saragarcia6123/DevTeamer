@@ -1,19 +1,18 @@
 from sqlmodel import Session, create_engine, SQLModel, func, select
 
 from models import User
-from config import Config
+from config import _Config
 
 
-class DBClient:
+class _PGClient:
 
     def __new__(cls):
         if not hasattr(cls, 'instance'):
-            cls.instance = super(DBClient, cls).__new__(cls)
-            cls.instance._init()
+            cls.instance = super(_PGClient, cls).__new__(cls)
         return cls.instance
 
-    def _init(self):
-        config = Config()
+    def init(self):
+        config = _Config()
         PG_URL = PG_URL = (
             f"postgresql+psycopg2://{config.PG_USER}:{config.PG_PASSWORD}"
             f"@{config.PG_HOST}:{config.PG_PORT}/{config.PG_NAME}"
@@ -80,3 +79,6 @@ class DBClient:
             session.commit()
             session.refresh(db_user)
             return db_user
+
+
+pg_client = _PGClient()

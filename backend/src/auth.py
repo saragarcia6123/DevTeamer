@@ -7,17 +7,16 @@ from jwt import ExpiredSignatureError, InvalidTokenError
 from email_validator import validate_email, EmailNotValidError
 from passlib.context import CryptContext
 from password_validator import PasswordValidator
-from db_client import DBClient
+from services.pg_client import pg_client
 from models import User
-from config import Config
+from config import _Config
 
-config = Config()
+config = _Config()
 
 ACCESS_TOKEN_EXPIRES = timedelta(days=14)
 JWT_ALGORITHM = "HS256"
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-db = DBClient()
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -39,7 +38,7 @@ def authenticate_user(identifier: str, password: str) -> User:
     except HTTPException:
         pass
 
-    user: User | None = db.get_user(identifier)
+    user: User | None = pg_client.get_user(identifier)
 
     GenericException = HTTPException(400, 'Authentication error.')
 
@@ -126,7 +125,7 @@ def get_current_user(
     except InvalidTokenError:
         raise credentials_exception
 
-    user = db.get_user(username)
+    user = pg_client.get_user(username)
     if not user:
         raise credentials_exception
 
@@ -239,7 +238,7 @@ def get_user_from_jwt(token: str) -> User:
                 detail="Token payload missing email."
             )
 
-        user = db.get_user_by_email(email)
+        user = pg_client.get_user_by_email(email)
 
         if not user:
             raise HTTPException(

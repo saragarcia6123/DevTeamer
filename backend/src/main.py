@@ -1,11 +1,34 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
 
-from routes import api_router
-from config import Config
+from config import config
 
-config = Config()
-app = FastAPI()
+
+# Load environment variables
+config.init()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+
+    from services.pg_client import pg_client
+    from services.redis_client import redis_client
+
+    # Initialize PostgreSQL
+    pg_client.init()
+    # Initialize Redis
+    redis_client.init()
+
+    from routes import api_router
+
+    app.include_router(api_router, prefix='/api')
+
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -19,5 +42,3 @@ app.add_middleware(
 @app.get("/")
 async def root():
     return {"message": "Hello World"}
-
-app.include_router(api_router, prefix='/api')

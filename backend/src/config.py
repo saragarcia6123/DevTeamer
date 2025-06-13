@@ -2,13 +2,12 @@ import os
 from dotenv import load_dotenv
 
 
-class Config:
+class _Config:
     _instance = None
 
     def __new__(cls):
         if cls._instance is None:
-            cls._instance = super(Config, cls).__new__(cls)
-            cls._instance._init()
+            cls._instance = super(_Config, cls).__new__(cls)
         return cls._instance
 
     def getenv_or_throw(self, key: str) -> str:
@@ -27,7 +26,7 @@ class Config:
                 f"Environment variable {key} must be a valid integer"
             )
 
-    def _init(self):
+    def init(self):
         load_dotenv()
 
         # Core
@@ -50,3 +49,6 @@ class Config:
         # SMTP
         self.EMAIL_ADDRESS = self.getenv_or_throw("EMAIL_ADDRESS")
         self.EMAIL_PASSWORD = self.getenv_or_throw("EMAIL_PASSWORD")
+
+
+config = _Config()

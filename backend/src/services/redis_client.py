@@ -1,18 +1,17 @@
 import redis.asyncio as redis
 
-from config import Config
+from config import _Config
 
 
-class RedisClient:
+class _RedisClient:
 
     def __new__(cls):
         if not hasattr(cls, 'instance'):
-            cls.instance = super(RedisClient, cls).__new__(cls)
-            cls.instance._init()
+            cls.instance = super(_RedisClient, cls).__new__(cls)
         return cls.instance
 
-    def _init(self):
-        config = Config()
+    def init(self):
+        config = _Config()
 
         self.r = redis.Redis(
             host=config.REDIS_HOST,
@@ -20,3 +19,6 @@ class RedisClient:
             db=config.REDIS_DB,
             decode_responses=True
         )
+
+
+redis_client = _RedisClient()
