@@ -1,9 +1,10 @@
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Annotated
 from email_validator import EmailNotValidError
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.security import OAuth2PasswordRequestForm
 
+from lib.time import now
 from models import UserCreate, UserRead, User, UserExists
 from services.pg_client import pg_client
 from services.redis_client import redis_client
@@ -149,7 +150,6 @@ async def resend_verification_email(
         return {"message": "User already verified."}
 
     COOLDOWN_SECONDS = 60
-    now = datetime.now(timezone.utc)
 
     # Check last resend request
     last_request_time_key = f"{user.email}_LAST_VERIFY_REQUEST"
@@ -159,7 +159,7 @@ async def resend_verification_email(
         last_request_time = datetime.fromisoformat(
             last_request_time_str.decode()
         )
-        time_since_last = (now - last_request_time).total_seconds()
+        time_since_last = (now() - last_request_time).total_seconds()
 
         if time_since_last < COOLDOWN_SECONDS:
             raise HTTPException(
@@ -172,7 +172,7 @@ async def resend_verification_email(
             )
 
     # Update Redis with new timestamp
-    await r.set(last_request_time_key, now.isoformat(), ex=COOLDOWN_SECONDS)
+    await r.set(last_request_time_key, now().isoformat(), ex=COOLDOWN_SECONDS)
 
     base_url = str(request.base_url).rstrip('/')
     token = create_jwt_email_verification_token(user.email, 30)

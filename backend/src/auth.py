@@ -7,6 +7,7 @@ from jwt import ExpiredSignatureError, InvalidTokenError
 from email_validator import validate_email, EmailNotValidError
 from passlib.context import CryptContext
 from password_validator import PasswordValidator
+from lib.time import now
 from services.pg_client import pg_client
 from models import User
 from config import _Config
@@ -88,7 +89,7 @@ def _encode_jwt(to_encode: dict) -> str:
 
 def create_jwt_access_token(data: dict) -> str:
     to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + ACCESS_TOKEN_EXPIRES
+    expire = now() + ACCESS_TOKEN_EXPIRES
     to_encode.update({"exp": int(expire.timestamp())})
     encoded_jwt = _encode_jwt(to_encode)
     return encoded_jwt
