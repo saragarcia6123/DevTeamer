@@ -1,12 +1,12 @@
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 import re
 from fastapi import Cookie, HTTPException, Response, status
 from fastapi.responses import RedirectResponse
 import jwt
 from jwt import ExpiredSignatureError, InvalidTokenError
 from email_validator import validate_email, EmailNotValidError
-from passlib.context import CryptContext
 from password_validator import PasswordValidator
+from lib.crypto import verify_password
 from lib.time import now
 from services.pg_client import pg_client
 from models import User
@@ -16,16 +16,6 @@ config = _Config()
 
 ACCESS_TOKEN_EXPIRES = timedelta(days=14)
 JWT_ALGORITHM = "HS256"
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
-
-
-def get_password_hash(password) -> str:
-    return pwd_context.hash(password)
 
 
 def authenticate_user(identifier: str, password: str) -> User:
@@ -99,7 +89,7 @@ def create_jwt_email_verification_token(
     email: str,
     expires_minutes: int
 ) -> str:
-    expire = datetime.now(timezone.utc) + timedelta(minutes=expires_minutes)
+    expire = now() + timedelta(minutes=expires_minutes)
     to_encode = {"sub": email, "exp": expire}
     encoded_jwt = _encode_jwt(to_encode)
     return encoded_jwt

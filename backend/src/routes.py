@@ -4,6 +4,7 @@ from email_validator import EmailNotValidError
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.security import OAuth2PasswordRequestForm
 
+from lib.crypto import hash_password
 from lib.time import now
 from models import UserCreate, UserRead, User, UserExists
 from services.pg_client import pg_client
@@ -11,7 +12,6 @@ from services.redis_client import redis_client
 
 from auth import (
     get_2fa_link,
-    get_password_hash,
     authenticate_user,
     create_jwt_access_token,
     get_current_user as auth_current_user,
@@ -100,7 +100,7 @@ async def register(
     if weak_password:
         raise HTTPException(400, weak_password)
 
-    hashed_password = get_password_hash(user.password)
+    hashed_password = hash_password(user.password)
 
     db_user: User = User(
         **user.model_dump(exclude={"email", "password", "username"}),
