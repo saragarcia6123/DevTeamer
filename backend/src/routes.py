@@ -4,6 +4,7 @@ from email_validator import EmailNotValidError
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.security import OAuth2PasswordRequestForm
 
+from lib.validate import normalize_email, validate_password, validate_username
 from lib.crypto import hash_password
 from lib.time import now
 from models import UserCreate, UserRead, User, UserExists
@@ -16,11 +17,8 @@ from auth import (
     create_jwt_access_token,
     get_current_user as auth_current_user,
     get_verification_link,
-    normalize_email,
     create_jwt_email_verification_token,
     response_or_redirect,
-    validate_password,
-    validate_username,
     get_user_from_jwt,
 )
 from services.email_client import send_2fa_email, send_verification_email
