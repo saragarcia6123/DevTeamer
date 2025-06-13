@@ -4,19 +4,19 @@ from email_validator import EmailNotValidError
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.security import OAuth2PasswordRequestForm
 
+from lib.links import get_2fa_link, get_verification_link
 from lib.validate import normalize_email, validate_password, validate_username
 from lib.crypto import hash_password
 from lib.time import now
+
 from models import UserCreate, UserRead, User, UserExists
 from services.pg_client import pg_client
 from services.redis_client import redis_client
 
 from auth import (
-    get_2fa_link,
     authenticate_user,
     create_jwt_access_token,
     get_current_user as auth_current_user,
-    get_verification_link,
     create_jwt_email_verification_token,
     response_or_redirect,
     get_user_from_jwt,
