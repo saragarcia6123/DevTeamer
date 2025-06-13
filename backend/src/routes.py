@@ -4,6 +4,7 @@ from email_validator import EmailNotValidError
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.security import OAuth2PasswordRequestForm
 
+from lib.jwt import issue_access_token, issue_verify_token
 from lib.links import get_2fa_link, get_verification_link
 from lib.validate import normalize_email, validate_password, validate_username
 from lib.crypto import hash_password
@@ -15,11 +16,9 @@ from services.redis_client import redis_client
 
 from auth import (
     authenticate_user,
-    create_jwt_access_token,
     get_current_user as auth_current_user,
-    create_jwt_email_verification_token,
-    response_or_redirect,
     get_user_from_jwt,
+    response_or_redirect,
 )
 from services.email_client import send_2fa_email, send_verification_email
 from config import config
@@ -111,7 +110,7 @@ async def register(
     db_user: User = pg_client.insert_user(db_user)
 
     base_url = str(request.base_url).rstrip('/')
-    token = create_jwt_email_verification_token(email_normalized, 30)
+    token = issue_verify_token(email_normalized)
     verification_link = get_verification_link(
         base_url=base_url,
         token=token,
@@ -173,7 +172,7 @@ async def resend_verification_email(
     await r.set(last_request_time_key, now().isoformat(), ex=COOLDOWN_SECONDS)
 
     base_url = str(request.base_url).rstrip('/')
-    token = create_jwt_email_verification_token(user.email, 30)
+    token = issue_verify_token(user.email)
     verification_link = get_verification_link(
         base_url=base_url,
         token=token,
@@ -238,10 +237,7 @@ async def request_login(
     base_url = str(request.base_url).rstrip('/')
 
     # Proceed to 2fa
-    token = create_jwt_email_verification_token(
-        email=email_normalized,
-        expires_minutes=5
-    )
+    token = issue_access_token(email_normalized)
     await r.set(token, "UNUSED")  # set token unused
 
     verification_link = get_2fa_link(
@@ -281,8 +277,8 @@ async def verify_login(
         if token_state != "UNUSED":
             raise HTTPException(409, "Token invalid or already used.")
 
-        user = get_user_from_jwt(token)
-        access_token = create_jwt_access_token(data={"sub": user.email})
+        user: User = get_user_from_jwt(token)
+        access_token = issue_access_token(user.email)
 
         message = "Logged in"
         status = 200

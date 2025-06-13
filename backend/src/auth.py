@@ -1,13 +1,8 @@
 from datetime import timedelta
-import re
 from fastapi import Cookie, HTTPException, Response, status
 from fastapi.responses import RedirectResponse
-import jwt
-from jwt import ExpiredSignatureError, InvalidTokenError
-from email_validator import validate_email, EmailNotValidError
-from password_validator import PasswordValidator
+from lib.jwt import TokenPayload, parse_jwt, set_access_token_cookie
 from lib.crypto import verify_password
-from lib.time import now
 from services.pg_client import pg_client
 from models import User
 from config import _Config
@@ -16,6 +11,16 @@ config = _Config()
 
 ACCESS_TOKEN_EXPIRES = timedelta(days=14)
 JWT_ALGORITHM = "HS256"
+
+UnauthorizedException = HTTPException(
+    status_code=status.HTTP_401_UNAUTHORIZED,
+    detail="Unauthorized.",
+)
+
+UserNotFoundException = HTTPException(
+    detail="User not found",
+    status_code=404
+)
 
 
 def authenticate_user(identifier: str, password: str) -> User:
@@ -64,122 +69,30 @@ def authenticate_user(identifier: str, password: str) -> User:
             status_code=403,
             detail='User not yet verified. Please check your email.'
         )
-
     return user
-
-
-def _encode_jwt(to_encode: dict) -> str:
-    encoded_jwt = jwt.encode(
-        payload=to_encode,
-        key=config.SECRET_KEY,
-        algorithm=JWT_ALGORITHM
-    )
-    return encoded_jwt
-
-
-def create_jwt_access_token(data: dict) -> str:
-    to_encode = data.copy()
-    expire = now() + ACCESS_TOKEN_EXPIRES
-    to_encode.update({"exp": int(expire.timestamp())})
-    encoded_jwt = _encode_jwt(to_encode)
-    return encoded_jwt
-
-
-def create_jwt_email_verification_token(
-    email: str,
-    expires_minutes: int
-) -> str:
-    expire = now() + timedelta(minutes=expires_minutes)
-    to_encode = {"sub": email, "exp": expire}
-    encoded_jwt = _encode_jwt(to_encode)
-    return encoded_jwt
 
 
 def get_current_user(
     access_token: str | None = Cookie(default=None, include_in_schema=False)
 ):
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Unauthorized.",
-    )
-    if access_token is None:
-        raise credentials_exception
-    try:
-        payload = jwt.decode(
-            jwt=access_token,
-            key=config.SECRET_KEY,
-            algorithms=[JWT_ALGORITHM]
-        )
-        username = payload.get("sub")
-        if username is None:
-            raise credentials_exception
-    except InvalidTokenError:
-        raise credentials_exception
+    jwt_data: TokenPayload = parse_jwt(access_token)
+    username = jwt_data.get('sub')
+    if username is None:
+        raise UnauthorizedException
 
     user = pg_client.get_user(username)
     if not user:
-        raise credentials_exception
-
+        raise UnauthorizedException
     return user
 
 
-def extract_email_from_jwt(
-    token: str
-) -> str | None:
-    payload = jwt.decode(token, config.SECRET_KEY, algorithms=[JWT_ALGORITHM])
-    email = payload.get("sub")
-    return email
-
-
-def set_access_token_cookie(response: Response, access_token: str):
-    response.set_cookie(
-        key="access_token",
-        value=access_token,
-        httponly=True,
-        max_age=int(ACCESS_TOKEN_EXPIRES.total_seconds()),
-        secure=not config.DEBUG,
-        samesite="lax" if config.DEBUG else "none",
-    )
-
-
 def get_user_from_jwt(token: str) -> User:
-    """
-    Attempts to read email from jwt payload
-    Then looks up user by email in the database
-    Will throw HTTPException if any errors occur
-    """
-    try:
-        email = extract_email_from_jwt(token)
-        if not email:
-            raise HTTPException(
-                status_code=400,
-                detail="Token payload missing email."
-            )
-
-        user = pg_client.get_user_by_email(email)
-
-        if not user:
-            raise HTTPException(
-                status_code=404,
-                detail="User not found."
-            )
-
-        return user
-    except ExpiredSignatureError:
-        raise HTTPException(
-            status_code=400,
-            detail="Verification token has expired."
-        )
-    except InvalidTokenError:
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid verification token."
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=e
-        )
+    jwt_data: TokenPayload = parse_jwt(token)
+    identifier = jwt_data.get('sub')
+    user = pg_client.get_user(identifier)
+    if not user:
+        raise 
+    return user
 
 
 def response_or_redirect(
