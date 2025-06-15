@@ -1,7 +1,8 @@
 from sqlmodel import Session, create_engine, SQLModel, func, select
 
+from logger import get_postgres_logger
 from models import User
-from config import _Config
+from config import config
 
 
 class _PGClient:
@@ -13,7 +14,9 @@ class _PGClient:
         return cls.instance
 
     def _init(self):
-        config = _Config()
+        self.logger = get_postgres_logger()
+        self.logger.info("Initializing PostgreSQL...")
+        
         PG_URL = PG_URL = (
             f"postgresql+psycopg2://{config.PG_USER}:{config.PG_PASSWORD}"
             f"@{config.PG_HOST}:{config.PG_PORT}/{config.PG_NAME}"

@@ -3,6 +3,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import Response
 from fastapi.security import OAuth2PasswordRequestForm
 
+from lib.utils import mask_email
+from logger import get_api_logger
 from wrappers.block_authenticated import block_authenticated
 from models import BaseResponse, UserCreate, UserRead, User
 
@@ -24,6 +26,7 @@ from services.email_client import send_2fa_email, send_verification_email
 
 from config import config
 
+api_logger = get_api_logger()
 r = redis_client.r
 
 auth_router = APIRouter()
@@ -44,7 +47,11 @@ async def register(
     if pg_client.get_user_by_username(user.username):
         raise HTTPException(409, "A user with that username already exists.")
 
-    hashed_password = hash_password(user.password)
+    hashed_password: str = hash_password(user.password)
+
+    api_logger.debug(
+        f"HASHED PASSWORD ({mask_email(user.email)}): {hashed_password[:3]}***"
+    )
 
     db_user: User = User(
         **user.model_dump(exclude={"email", "password", "username"}),
@@ -64,6 +71,7 @@ async def register(
     )  # goes to /verify
 
     if not config.DEBUG:
+        api_logger.info(f"Sending verification email to {user.email}")
         send_verification_email(user.email, verification_link)
         message = """User registered successfully.
             Please verify your account using the link
@@ -87,7 +95,6 @@ async def resend_verification_email(
     username: str,
     redirect_uri: str | None = Query(None, alias="redirectUri"),
 ):
-    print("calling verify...")
     user: User | None = pg_client.get_user(username)
     if not user:
         raise UserNotFoundException
@@ -117,7 +124,7 @@ async def verify(
     request: Request,
     response: Response,
     access_token: str = Query(..., alias="token"),
-    redirect_uri: str | None = Query(None, alias="redirectUri"), 
+    redirect_uri: str | None = Query(None, alias="redirectUri"),
 ):
     """
     Endpoint where verification link sent to user
@@ -180,7 +187,6 @@ async def verify_login(
     """
     Endpoint where 2fa link sent to user after login directs to.
     """
-    print("LOGGING IN...")
 
     try:
         # Ensure login token is only used once
@@ -190,17 +196,13 @@ async def verify_login(
 
         user: User = get_user_from_token(token)
         access_token = issue_access_token(user.email)
-        print(f"ACCESS TOKEN: {access_token}")
+        api_logger.debug(f"ACCESS TOKEN: {access_token[:5]}...")
 
         set_access_token_cookie(response, access_token)
         return BaseResponse.ok("Authenticated.")
     except HTTPException as e:
-        if config.DEBUG:
-            print(f"HTTP ERROR: {e.status_code}: {e.detail}")
         raise e
     except Exception as e:
-        if config.DEBUG:
-            print(f"ERROR: {e.__str__}")
         raise e
     finally:
         await r.getdel(token)
@@ -211,7 +213,7 @@ async def verify_login(
 async def logout(
     request: Request,
     response: Response,
-    redirect_uri: str | None = Query(None, alias="redirectUri"), 
+    redirect_uri: str | None = Query(None, alias="redirectUri"),
 ):
     """Disinjects jwt"""
     response.delete_cookie(key="access_token")

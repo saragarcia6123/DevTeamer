@@ -8,22 +8,47 @@ This project uses [FastAPI](https://fastapi.tiangolo.com/) for the backend and [
 
 ### Pre-requisites
 
-- [Docker](https://www.docker.com/)
+- [Docker](https://www.docker.com/products/docker-desktop/)
+- [PostgreSQL](https://www.postgresql.org/download/)
 
 ### Setup
+
+#### Copy .env files
 
 ```sh
 cp ./frontend/.env.example ./frontend/.env
 cp ./backend/.env.example ./backend/.env
-cp ./db/.env.example ./db/.env
+cp ./.env.example ./.env
 ```
 
 *As of right now, the example `.env` configuration should work as-is*
 
-### Command
+#### Run Command
 
 ```sh
-docker compose up
+source ./db/.env
+docker compose up --build
+```
+
+*Frontend URL - <http://localhost:3000>*
+
+*Backend docs URL — <http://localhost:8000/docs>*
+
+
+
+## Direct connection to the databases via CLI
+
+### PostgreSQL
+
+```sh
+psql -h 127.0.0.1 -U postgres -W
+\c db
+```
+
+### Redis
+
+```sh
+redis-cli -h 127.0.0.1
 ```
 
 ## Endpoints

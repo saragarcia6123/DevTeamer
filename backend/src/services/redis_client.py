@@ -1,6 +1,7 @@
 import redis.asyncio as redis
 
-from config import _Config
+from logger import get_redis_logger
+from config import config
 
 
 class _RedisClient:
@@ -12,12 +13,14 @@ class _RedisClient:
         return cls.instance
 
     def _init(self):
-        config = _Config()
+        self.logger = get_redis_logger()
+        self.logger.info("Initializing Redis...")
 
         self.r = redis.Redis(
             host=config.REDIS_HOST,
             port=config.REDIS_PORT,
             db=config.REDIS_DB,
+            password=config.REDIS_PASSWORD,
             decode_responses=True,
         )
 
