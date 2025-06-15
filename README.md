@@ -1,6 +1,6 @@
 # DevTeamer - Find devs to collab with
 
-[![wakatime](https://wakatime.com/badge/user/961b9b73-7fbd-42ec-8eac-034f364eaeaf/project/c7cdfabd-0d57-4067-a8b9-9393319a59b3.svg)](https://wakatime.com/badge/user/961b9b73-7fbd-42ec-8eac-034f364eaeaf/project/c7cdfabd-0d57-4067-a8b9-9393319a59b3)
+[![wakatime](https://wakatime.com/badge/user/961b9b73-7fbd-42ec-8eac-034f364eaeaf/project/4aecf67f-d5c4-46f7-9196-7e2542fcfa0f.svg)](https://wakatime.com/badge/user/961b9b73-7fbd-42ec-8eac-034f364eaeaf/project/4aecf67f-d5c4-46f7-9196-7e2542fcfa0f)
 
 This project uses [FastAPI](https://fastapi.tiangolo.com/) for the backend and [React](https://react.dev/) for the frontend
 
