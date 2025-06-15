@@ -1,5 +1,5 @@
 import { useNavigate } from "@tanstack/react-router";
-import { logout } from "@/api";
+import { logout } from "@/api/fetch";
 import { useUserContext } from "@/contexts/userContext";
 import { useFetchCurrentUser } from "@/hooks/UseFetchUser";
 
@@ -10,7 +10,7 @@ export default function Profile() {
 
   const navigate = useNavigate();
 
-  if (loading) return <p>Loading user data...</p>;
+  if (loading) return <ProfileSkeletonLoader />;
   if (error) return <p>Error: {error.message}</p>;
   if (!user) return <p>Error fetching user</p>
 
@@ -41,3 +41,18 @@ export default function Profile() {
   );
 };
 
+function ProfileSkeletonLoader() {
+    return (
+        <div className="flex animate-pulse p-4 space-x-4 max-w-xl w-full h-full mx-auto">
+            {/* Avatar skeleton */}
+            <div className="w-16 h-16 bg-gray-300 rounded-full flex-shrink-0"></div>
+
+            {/* Profile info skeleton */}
+            <div className="flex flex-col space-y-2 flex-1">
+                <div className="h-4 bg-gray-300 rounded w-3/4"></div>
+                <div className="h-3 bg-gray-300 rounded w-1/2"></div>
+                <div className="h-3 bg-gray-300 rounded w-5/6"></div>
+            </div>
+        </div>
+    );
+};

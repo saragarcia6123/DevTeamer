@@ -3,12 +3,12 @@ from dotenv import load_dotenv
 
 
 class _Config:
-    _instance = None
 
     def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super(_Config, cls).__new__(cls)
-        return cls._instance
+        if not hasattr(cls, "instance"):
+            cls.instance = super(_Config, cls).__new__(cls)
+            cls.instance._init()
+        return cls.instance
 
     def getenv_or_throw(self, key: str) -> str:
         value: str | None = os.getenv(key)
@@ -22,16 +22,14 @@ class _Config:
             value_parsed = int(value)
             return value_parsed
         except ValueError as e:
-            raise ValueError(
-                f"Environment variable {key} must be a valid integer"
-            )
+            raise ValueError(f"Environment variable {key} must be a valid integer")
 
-    def init(self):
+    def _init(self):
         load_dotenv()
 
         # Core
         self.DEBUG = self.getenv_or_throw("DEBUG").lower() in ("true", "1")
-        self.ALLOW_ORIGINS = self.getenv_or_throw("ALLOW_ORIGINS").split(',')
+        self.ALLOW_ORIGINS = self.getenv_or_throw("ALLOW_ORIGINS").split(",")
         self.SECRET_KEY = self.getenv_or_throw("SECRET_KEY")
 
         # PostgreSQL

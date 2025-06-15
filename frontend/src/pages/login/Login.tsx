@@ -2,8 +2,9 @@ import { useContext, useEffect, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import z from "zod";
 import { UserContext, useUserContext } from "@/contexts/userContext";
-import { HTTPError, login, userExists } from "@/api";
+import { login, userExists } from "@/api/fetch";
 import ResendVerify from "@/components/ResendVerify";
+import { HTTPError } from "@/api/http_error";
 
 export default function Login() {
 
@@ -29,6 +30,8 @@ export default function Login() {
   async function handleEmailSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
 
+    setError(null);
+
     const email = emailInput.current?.value;
 
     if (!email) {
@@ -41,12 +44,23 @@ export default function Login() {
       return;
     }
 
-    const exists = await userExists(email);
-    if (exists) {
-      setStep("password");
-    } else {
-      navigate({ to: "/register", search: { email } });
+    let exists = false;
+
+    try {
+      exists = await userExists(email);
+      if (exists) {
+        setStep("password");
+      } else {
+        navigate({ to: "/register", search: { email } });
+      }
+    } catch (err: any) {
+      if (err instanceof HTTPError) {
+        setError(err.message);
+      } else {
+        setError("Something went wrong.");
+      }
     }
+
   }
 
   async function handlePasswordSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -90,15 +104,15 @@ export default function Login() {
         />
         {step === "password" && (
           <input
-              type="password"
-              name="password"
-              ref={passwordInput}
-              placeholder="Password"
-              required
-            />
+            type="password"
+            name="password"
+            ref={passwordInput}
+            placeholder="Password"
+            required
+          />
         )}
         {error && <p className="text-red-600 text-sm">{error}</p>}
-        {unverified && <ResendVerify email={emailInput.current!.value}/>}
+        {unverified && <ResendVerify email={emailInput.current!.value} />}
         <button
           type="submit"
         >

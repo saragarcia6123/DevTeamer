@@ -1,12 +1,22 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import type { UserRegister } from "@/models/User";
-import { register } from "@/api";
+import { register } from "@/api/fetch";
+import { useUserContext } from "@/contexts/userContext";
 
 
 export default function Register() {
-    const search = useSearch({ from: "/register" });
+
+    const { user } = useUserContext();
     const navigate = useNavigate();
+
+    useEffect(() => {
+        if (user) {
+            navigate({ to: "/profile" });
+        }
+    }, [user, navigate]);
+
+    const search = useSearch({ from: "/register" });
 
     // For handing over email when coming from login
     const email = search.email ?? null;

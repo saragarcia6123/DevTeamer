@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import type { User } from "@/models/User";
-import { HTTPError, fetchCurrentUser } from "@/api";
+import { fetchCurrentUser } from "@/api/fetch";
 import { useUserContext } from "@/contexts/userContext";
+import { HTTPError } from "@/api/http_error";
 
 interface UseFetchUserResult {
     user: User | null;

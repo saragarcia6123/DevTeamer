@@ -1,9 +1,4 @@
-def _get_link(
-    endpoint: str,
-    base_url: str,
-    token: str,
-    redirect_uri: str | None
-):
+def _get_link(endpoint: str, base_url: str, token: str, redirect_uri: str | None):
     link = f"{base_url.rstrip('/')}/api/auth/{endpoint}?token={token}"
     if redirect_uri:
         link = f"{link}&redirectUri={redirect_uri}"

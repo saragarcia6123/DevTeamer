@@ -6,8 +6,8 @@ export default function RegisterSuccess() {
 
     return (
         <div className="flex items-center align-middle">
-            <div className="form-info">
-                <h2>Registration Successful!</h2>
+            <div className="form-info flex flex-col gap-2">
+                <h2 className="text-xl"><strong>Registration Successful!</strong></h2>
                 <p>
                     A verification email has been sent to {email ? <strong>{email}</strong> : "your email"}.
                 </p>

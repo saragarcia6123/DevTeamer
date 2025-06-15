@@ -1,33 +1,15 @@
+import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from contextlib import asynccontextmanager
 
 from config import config
 
+logging.getLogger("passlib").setLevel(logging.ERROR)
 
-# Load environment variables
-config.init()
+if config.DEBUG:
+    print(f"ALLOW ORIGINS: {config.ALLOW_ORIGINS}")
 
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-
-    from services.pg_client import pg_client
-    from services.redis_client import redis_client
-
-    # Initialize PostgreSQL
-    pg_client.init()
-    # Initialize Redis
-    redis_client.init()
-
-    from routes import api_router
-
-    app.include_router(api_router, prefix='/api')
-
-    yield
-
-
-app = FastAPI(lifespan=lifespan)
+app = FastAPI()
 
 
 app.add_middleware(
@@ -42,3 +24,10 @@ app.add_middleware(
 @app.get("/")
 async def root():
     return {"message": "Hello World"}
+
+
+from routes.auth import auth_router
+from routes.users import users_router
+
+app.include_router(auth_router, prefix="/api/auth")
+app.include_router(users_router, prefix="/api/users")

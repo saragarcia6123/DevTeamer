@@ -7,11 +7,12 @@ from config import _Config
 class _PGClient:
 
     def __new__(cls):
-        if not hasattr(cls, 'instance'):
+        if not hasattr(cls, "instance"):
             cls.instance = super(_PGClient, cls).__new__(cls)
+            cls.instance._init()
         return cls.instance
 
-    def init(self):
+    def _init(self):
         config = _Config()
         PG_URL = PG_URL = (
             f"postgresql+psycopg2://{config.PG_USER}:{config.PG_PASSWORD}"
@@ -28,7 +29,7 @@ class _PGClient:
 
     def get_user(self, identifier: str) -> User | None:
         user: User | None = None
-        if '@' in identifier:
+        if "@" in identifier:
             user = self.get_user_by_email(identifier)
         else:
             user = self.get_user_by_username(identifier)
@@ -45,9 +46,7 @@ class _PGClient:
 
     def get_user_by_email(self, email: str) -> User | None:
         with Session(self.engine) as session:
-            statement = select(User).where(
-                func.lower(User.email) == email.lower()
-            )
+            statement = select(User).where(func.lower(User.email) == email.lower())
             result = session.exec(statement)
             user = result.first()
             return user
