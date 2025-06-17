@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { resendVerification } from "@/api/fetch";
 import { HTTPError } from "@/api/http_error";
+import { resendVerification } from "@/api/routes/auth";
 
 export default function ResendVerify({ email }: { email: string | null }) {
     const [resentMessage, setResentMessage] = useState<string | null>(null);

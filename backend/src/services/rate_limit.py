@@ -1,13 +1,13 @@
 from fastapi import HTTPException
 from datetime import datetime
-from lib.time import now
+from lib.utils import now
 from services.redis_client import redis_client
 
 r = redis_client.r
 
 
 async def enforce_email_action_cooldown(
-    email: str, action: str, cooldown_seconds: int = 60
+    email: str, action: str, cooldown_seconds: int = 30
 ):
     """
     Ensures cooldown period for an email-based action (e.g., verification, password reset).
@@ -21,11 +21,11 @@ async def enforce_email_action_cooldown(
         time_since_last = (now() - last_request_time).total_seconds()
 
         if time_since_last < cooldown_seconds:
+            time_left = int(cooldown_seconds - time_since_last) 
             raise HTTPException(
                 status_code=429,
-                detail=f"""Please wait
-                    {int(cooldown_seconds - time_since_last)} 
-                    seconds before requesting again.""",
+                detail=''.join([f"Please wait {time_left}", 
+                    "seconds before requesting again."]),
             )
 
     await r.set(key, now().isoformat(), ex=cooldown_seconds)

@@ -4,10 +4,8 @@ from fastapi import HTTPException, Response
 import jwt
 from jwt import ExpiredSignatureError, InvalidTokenError, MissingRequiredClaimError
 
-from lib import time
-from config import _Config
-
-config = _Config()
+from lib.utils import now
+from config import config
 
 JWT_ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRES = timedelta(days=14)
@@ -38,7 +36,7 @@ def _encode_jwt(payload: TokenPayloadRaw) -> str:
 def issue_jwt(subject: str, expires: datetime) -> str:
     to_encode: TokenPayloadRaw = {
         "sub": subject,
-        "iat": int(time.now().timestamp()),
+        "iat": int(now().timestamp()),
         "exp": int(expires.timestamp()),
     }
     encoded_jwt = _encode_jwt(to_encode)
@@ -46,7 +44,7 @@ def issue_jwt(subject: str, expires: datetime) -> str:
 
 
 def issue_access_token(identifier: str) -> str:
-    expires = time.now() + ACCESS_TOKEN_EXPIRES
+    expires = now() + ACCESS_TOKEN_EXPIRES
     encoded_jwt = issue_jwt(identifier, expires)
     return encoded_jwt
 
@@ -54,7 +52,7 @@ def issue_access_token(identifier: str) -> str:
 def issue_verify_token(
     identifier: str,
 ) -> str:
-    expires = time.now() + VERIFY_TOKEN_EXPIRES
+    expires = now() + VERIFY_TOKEN_EXPIRES
     encoded_jwt = issue_jwt(identifier, expires)
     return encoded_jwt
 
@@ -95,11 +93,24 @@ def parse_jwt(token: str | None) -> TokenPayload:
 
 
 def set_access_token_cookie(response: Response, access_token: str):
+    expires_seconds = int(ACCESS_TOKEN_EXPIRES.total_seconds())
+    expires_at = now() + ACCESS_TOKEN_EXPIRES
+
     response.set_cookie(
         key="access_token",
         value=access_token,
         httponly=True,
-        max_age=int(ACCESS_TOKEN_EXPIRES.total_seconds()),
+        expires=expires_at,
+        max_age=expires_seconds,
         secure=not config.DEBUG,
+        samesite="lax",
+    )
+
+
+def delete_access_token_cookie(response: Response):
+    response.delete_cookie(
+        key="access_token",
+        secure=not config.DEBUG,
+        httponly=True,
         samesite="lax",
     )

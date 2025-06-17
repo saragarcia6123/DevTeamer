@@ -1,10 +1,13 @@
 import logging
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
-from logger import get_app_logger, get_api_logger, get_postgres_logger, get_redis_logger
-
+from middleware.custom_interceptor import custom_interceptor
+from middleware.exception_handlers import http_exception_handler, user_not_found_handler
+from lib.http_exception import UserNotFoundException
+from models.response import BaseResponse
+from logger import get_app_logger
 
 logging.getLogger("passlib").setLevel(logging.ERROR)
 
@@ -17,11 +20,21 @@ async def lifespan(app: FastAPI):
     import config
     from services import pg_client, redis_client
 
+    db = pg_client.get_db()
+    pg_con = pg_client.test_connection(db)
+    if not pg_con:
+        raise HTTPException(503, "PostgreSQL connection failed.")
+
+    redis_con = await redis_client.redis_client.test_connection()
+    if not redis_con:
+        raise HTTPException(503, "Redis connection failed.")
+
     from routes.auth import auth_router
     from routes.users import users_router
 
-    app.include_router(auth_router, prefix="/api/auth")
-    app.include_router(users_router, prefix="/api/users")
+    app.include_router(auth_router, prefix="/auth")
+    app.include_router(users_router, prefix="/users")
+
 
     yield
 
@@ -50,10 +63,27 @@ app.add_middleware(
 app_logger = get_app_logger()
 
 
+@app.exception_handler(UserNotFoundException)
+async def _user_not_found_handler(request: Request, exc: UserNotFoundException):
+    return await user_not_found_handler(request, exc)
+
+
+@app.exception_handler(HTTPException)
+async def _http_exception_handler(request: Request, exc: HTTPException):
+    return await http_exception_handler(request, exc)
+
+
+@app.middleware("http")
+async def _custom_interceptor(request: Request, call_next):
+    if request.url.path in ["/", "/docs", "/openapi.json"]:
+        return await call_next(request)
+    return await custom_interceptor(request, call_next)
+
+
 @app.get("/")
 async def root():
     app_logger.info("Root endpoint called")
-    return {"message": "Hello World"}
+    return BaseResponse.ok("DevTeamer API")
 
 
 if __name__ == "__main__":

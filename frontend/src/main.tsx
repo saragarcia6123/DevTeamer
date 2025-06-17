@@ -14,11 +14,12 @@ import Root from './Root.tsx'
 import Home from './pages/Home.tsx'
 import Profile from './pages/Profile.tsx'
 import Login from './pages/login/Login.tsx'
-import LoginSuccess from './pages/login/LoginSuccess.tsx'
+import AuthorizeLogin from './pages/login/AuthorizeLogin.tsx'
 import Register from './pages/register/Register.tsx'
 import RegisterSuccess from './pages/register/RegisterSuccess.tsx'
 import ConfirmLogin from './pages/login/ConfirmLogin.tsx'
-import VerifySuccess from './pages/verify/VerifySuccess.tsx'
+import VerifyProfile from './pages/verify/VerifyProfile.tsx'
+import { ROUTES } from './routes.ts'
 
 export const optionalEmail = z.preprocess(
   (val) => {
@@ -35,64 +36,64 @@ const rootRoute = createRootRoute({
 
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/',
+  path: ROUTES.home,
   component: Home,
 });
 
 const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: 'login',
+  path: ROUTES.login,
+  validateSearch: z.object({ email: optionalEmail }),
   component: Login,
 });
 
-const loginSuccessRoute = createRoute({
+const confirmLoginRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: 'login-success',
-  validateSearch: z.object({email: optionalEmail}),
-  component: LoginSuccess,
+  path: ROUTES.confirmLogin,
+  validateSearch: z.object({ email: optionalEmail }),
+  component: ConfirmLogin,
+});
+
+const authorizeLoginRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: ROUTES.authorizeLogin,
+  component: AuthorizeLogin,
 });
 
 const registerRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: 'register',
-  validateSearch: z.object({email: optionalEmail}),
+  path: ROUTES.register,
+  validateSearch: z.object({ email: optionalEmail }),
   component: Register,
 });
 
 const registerSuccessRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: 'register-success',
-  validateSearch: z.object({email: optionalEmail}),
+  path: ROUTES.registerSuccess,
+  validateSearch: z.object({ email: optionalEmail }),
   component: RegisterSuccess,
 });
 
-const confirmLoginRoute = createRoute({
+const verifyProfileRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: 'confirm-login',
-  validateSearch: z.object({email: optionalEmail}),
-  component: ConfirmLogin,
+  path: ROUTES.verifyProfile,
+  component: VerifyProfile,
 });
 
 const profileRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: 'profile',
+  path: ROUTES.profile,
   component: Profile,
-});
-
-const verifySuccessRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: 'verify-success',
-  component: VerifySuccess,
 });
 
 const routeTree = rootRoute.addChildren([
   indexRoute,
   loginRoute,
   confirmLoginRoute,
-  loginSuccessRoute,
+  authorizeLoginRoute,
   registerRoute,
   registerSuccessRoute,
-  verifySuccessRoute,
+  verifyProfileRoute,
   profileRoute,
 ])
 

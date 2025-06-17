@@ -1,25 +1,21 @@
 from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import Response
 from fastapi.security import OAuth2PasswordRequestForm
+from sqlmodel import Session
 
-from lib.utils import mask_email
+from services.pg_client import depends_get_db, get_user, get_user_by_email, get_user_by_username, insert_user, update_user
 from logger import get_api_logger
-from wrappers.block_authenticated import block_authenticated
 from models import BaseResponse, UserCreate, UserRead, User
 
-from wrappers.optional_redirect import optional_redirect
-
 from lib.http_exception import UserNotFoundException
-from lib.jwt import issue_access_token, issue_verify_token, set_access_token_cookie
+from lib.jwt import delete_access_token_cookie, issue_access_token, issue_verify_token, set_access_token_cookie
 from lib.links import get_2fa_link, get_verification_link
+from lib.utils import get_client_ip, mask_email, now
 from lib.crypto import hash_password
-from lib.auth import (
-    get_user_from_token,
-    validate_credentials,
-)
+from lib.auth import get_user_from_token, require_authenticated, require_unauthenticated, validate_credentials
 
-from services.pg_client import pg_client
 from services.redis_client import redis_client
 from services.rate_limit import enforce_email_action_cooldown
 from services.email_client import send_2fa_email, send_verification_email
@@ -32,19 +28,18 @@ r = redis_client.r
 auth_router = APIRouter()
 
 
-@block_authenticated
 @auth_router.post("/register", response_model=BaseResponse[UserRead])
-@optional_redirect
 async def register(
+    _: Annotated[None, Depends(require_unauthenticated)],
     request: Request,
-    response: Response,
     user: UserCreate,
-    redirect_uri: str | None = Query(None, alias="redirectUri"),
+    db: Session = Depends(depends_get_db),
+    client_url: str | None = Query(None, alias="clientUrl"),
 ):
-    if pg_client.get_user_by_email(user.email.lower()):
+    if get_user_by_email(db, user.email.lower()):
         raise HTTPException(409, "A user with that email already exists.")
 
-    if pg_client.get_user_by_username(user.username):
+    if get_user_by_username(db, user.username):
         raise HTTPException(409, "A user with that username already exists.")
 
     hashed_password: str = hash_password(user.password)
@@ -53,21 +48,22 @@ async def register(
         f"HASHED PASSWORD ({mask_email(user.email)}): {hashed_password[:3]}***"
     )
 
-    db_user: User = User(
-        **user.model_dump(exclude={"email", "password", "username"}),
-        email=user.email.lower(),
+    db_user = User(
+        email=user.email,
+        username=user.username,
+        first_name=user.first_name,
+        last_name=user.last_name,
         hashed_password=hashed_password,
-        username=user.username.lower(),
-        verified=False,
+        verified=False
     )
 
-    db_user: User = pg_client.insert_user(db_user)
+    db_user: User = insert_user(db, db_user)
 
     base_url = str(request.base_url).rstrip("/")
     token = issue_verify_token(user.email)
 
     verification_link: str = get_verification_link(
-        base_url=base_url, token=token, redirect_uri=redirect_uri
+        base_url=base_url, token=token, client_url=client_url
     )  # goes to /verify
 
     if not config.DEBUG:
@@ -76,26 +72,32 @@ async def register(
         message = """User registered successfully.
             Please verify your account using the link
             sent to your email address."""
-        data = UserRead(**user.model_dump())
     else:
         message = verification_link
-        data = UserRead(**user.model_dump())
 
+    user_read = UserRead(
+        id=db_user.id,
+        email=db_user.email,
+        username=db_user.username,
+        first_name=db_user.first_name,
+        last_name=db_user.last_name,
+        verified=db_user.verified
+    )
     return BaseResponse[UserRead].ok(
         detail=message,
-        data=data,
+        data=user_read,
     )
 
 
-@block_authenticated
 @auth_router.get("/resend-verification", response_model=BaseResponse[None])
 async def resend_verification_email(
+    _: Annotated[None, Depends(require_unauthenticated)],
     request: Request,
-    response: Response,
     username: str,
-    redirect_uri: str | None = Query(None, alias="redirectUri"),
+    db: Session = Depends(depends_get_db),
+    client_url: str | None = Query(None, alias="clientUrl"),
 ):
-    user: User | None = pg_client.get_user(username)
+    user: User | None = get_user(db, username)
     if not user:
         raise UserNotFoundException
 
@@ -107,7 +109,7 @@ async def resend_verification_email(
     base_url = str(request.base_url).rstrip("/")
     token = issue_verify_token(user.email)
     verification_link = get_verification_link(
-        base_url=base_url, token=token, redirect_uri=redirect_uri
+        base_url=base_url, token=token, client_url=client_url
     )  # goes to /verify
 
     if not config.DEBUG:
@@ -117,41 +119,35 @@ async def resend_verification_email(
         return BaseResponse.ok(verification_link)
 
 
-@block_authenticated
-@auth_router.get("/verify", response_model=BaseResponse[None], include_in_schema=False)
-@optional_redirect
+@auth_router.get("/verify", response_model=BaseResponse[None])
 async def verify(
-    request: Request,
-    response: Response,
+    _: Annotated[User, Depends(require_unauthenticated)],
+    db: Session = Depends(depends_get_db),
     access_token: str = Query(..., alias="token"),
-    redirect_uri: str | None = Query(None, alias="redirectUri"),
 ):
     """
-    Endpoint where verification link sent to user
-    after registration directs to.
+    Endpoint to verify JWT sent from /register
     """
-    user: User = get_user_from_token(access_token)
+    user: User = get_user_from_token(db, access_token)
 
     if user.verified:
         return BaseResponse.ok("User already verified.")
 
     user.verified = True
-    pg_client.update_user(user)
+    update_user(db, user)
 
     return BaseResponse.ok("Email verified. You may now log in.")
 
 
-@block_authenticated
 @auth_router.post("/login", response_model=BaseResponse[None])
 async def request_login(
+    _: Annotated[None, Depends(require_unauthenticated)],
     request: Request,
-    response: Response,
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
-    redirect_uri: str | None = Query(None, alias="redirectUri"),
+    db: Session = Depends(depends_get_db),
+    client_url: str | None = Query(None, alias="clientUrl"),
 ):
-    user: User = validate_credentials(form_data.username, form_data.password)
-
-    await enforce_email_action_cooldown(user.email, "LOGIN")
+    user: User = validate_credentials(db, form_data.username, form_data.password)
 
     # Proceed to 2fa
     token = issue_access_token(user.email)
@@ -160,8 +156,11 @@ async def request_login(
     verification_link = get_2fa_link(
         base_url=str(request.base_url).rstrip("/"),
         token=token,
-        redirect_uri=redirect_uri,
-    )
+        client_url=client_url,
+    )  # goes to /verify-login
+
+
+    await enforce_email_action_cooldown(user.email, "LOGIN")
 
     # Don't send emails in debug
     if not config.DEBUG:
@@ -173,48 +172,50 @@ async def request_login(
         return BaseResponse.ok(verification_link)
 
 
-@block_authenticated
-@auth_router.get(
-    "/verify-login", response_model=BaseResponse[None], include_in_schema=False
-)
-@optional_redirect
-async def verify_login(
+@auth_router.get("/confirm-login", response_model=BaseResponse[None])
+async def confirm_login(
+    _: Annotated[None, Depends(require_unauthenticated)],
     request: Request,
     response: Response,
     token: str,
-    redirect_uri: str | None = Query(None, alias="redirectUri"),
+    db: Session = Depends(depends_get_db),
 ):
     """
-    Endpoint where 2fa link sent to user after login directs to.
+    Endpoint to verify JWT sent from /login
     """
 
-    try:
-        # Ensure login token is only used once
-        token_state = await r.get(token)
-        if token_state != "UNUSED":
-            raise HTTPException(409, "Token invalid or already used.")
+    # Ensure login token is only used once
+    token_state: str = await r.get(token)
 
-        user: User = get_user_from_token(token)
-        access_token = issue_access_token(user.email)
-        api_logger.debug(f"ACCESS TOKEN: {access_token[:5]}...")
+    # if token_state and token_state.startswith("USED"):
+    #     raise HTTPException(409, "This link has already been used.")
 
-        set_access_token_cookie(response, access_token)
-        return BaseResponse.ok("Authenticated.")
-    except HTTPException as e:
-        raise e
-    except Exception as e:
-        raise e
-    finally:
-        await r.getdel(token)
+    if not token_state:
+        raise HTTPException(400, "Invalid or expired token.")
+
+    user: User = get_user_from_token(db, token)
+
+    access_token = issue_access_token(user.email)
+    api_logger.debug(f"ACCESS TOKEN: {access_token[:5]}...")
+
+    set_access_token_cookie(response, access_token)
+
+    timestamp = now().timestamp
+
+    ip = get_client_ip(request)
+    ip = ip if ip else "UNKNOWN"
+
+    await r.set(token, f"USED - {ip} - {timestamp}")
+
+    return BaseResponse.ok("Authenticated.")
 
 
 @auth_router.post("/logout", response_model=BaseResponse[None])
-@optional_redirect
 async def logout(
+    _: Annotated[User, Depends(require_authenticated)],
     request: Request,
     response: Response,
-    redirect_uri: str | None = Query(None, alias="redirectUri"),
 ):
     """Disinjects jwt"""
-    response.delete_cookie(key="access_token")
+    delete_access_token_cookie(response)
     return BaseResponse.ok(detail="Logged out.")

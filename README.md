@@ -9,7 +9,6 @@ This project uses [FastAPI](https://fastapi.tiangolo.com/) for the backend and [
 ### Pre-requisites
 
 - [Docker](https://www.docker.com/products/docker-desktop/)
-- [PostgreSQL](https://www.postgresql.org/download/)
 
 ### Setup
 
@@ -26,7 +25,6 @@ cp ./.env.example ./.env
 #### Run Command
 
 ```sh
-source ./db/.env
 docker compose up --build
 ```
 
@@ -38,18 +36,27 @@ docker compose up --build
 
 ## Direct connection to the databases via CLI
 
-### PostgreSQL
+### [PostgreSQL](https://www.postgresql.org/download/)
 
 ```sh
 psql -h 127.0.0.1 -U postgres -W
 \c db
 ```
 
-### Redis
+### [Redis](https://redis.io/downloads/)
 
 ```sh
 redis-cli -h 127.0.0.1
 ```
+
+## Response Model
+
+*✱ = required*
+
+- **Detail ✱** — string
+- **Status Code ✱** — int
+- **Data** — int
+- **Metadata ✱** — dict
 
 ## Endpoints
 
@@ -87,7 +94,7 @@ redis-cli -h 127.0.0.1
 
 ---
 
-- #### /auth/verify-login — Confirm login via 2FA
+- #### /auth/confirm-login — Confirm login via 2FA
     ↪ Response or Redirect — [**message**, **status**, **HTTP-only JWT Cookie**]
 
     - **Token ✱** — Short-lived JWT Token generated during login
@@ -114,6 +121,11 @@ redis-cli -h 127.0.0.1
 
 - #### /users/check-exists — Check if a user exists
     ↪ **Exists** — true/false
+
+---
+
+- #### /users/check-verified — Check if a user is verified
+    ↪ **Verified** — true/false
 
 ---
 
@@ -154,3 +166,11 @@ redis-cli -h 127.0.0.1
 8. The token is injected into the response cookie
 9. The client receives the repsonse with the cookie and is now authorised
 10. Subsequent requests made to the API must have credentials included and will be auto authenticated
+
+## Extra Features
+
+- Custom HTTP Middleware that intercepts and standardizes all requests
+- Cache last response and return on immediately subsequent requests to prevent idempotency
+- Robust field validation using Pydantic and other validation libraries
+
+*...plus loads more that you can check out for yourself!*

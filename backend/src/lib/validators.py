@@ -18,8 +18,6 @@ def validate_name(name: str) -> str:
     """Validate names supporting international characters"""
     name = name.strip()
 
-    if len(name) < 2:
-        raise ValueError("Name must be at least 2 characters long")
     if len(name) > 100:
         raise ValueError("Name must be no more than 100 characters long")
 

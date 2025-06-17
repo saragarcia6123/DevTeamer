@@ -1,5 +1,7 @@
-from fastapi import Cookie, HTTPException
-from models.response import BaseResponse
+from fastapi import Cookie, Depends, HTTPException, Response
+from sqlmodel import Session
+from services.pg_client import depends_get_db, get_user
+from logger import get_api_logger
 from lib.http_exception import (
     AuthenticationException,
     IncorrectPasswordException,
@@ -8,27 +10,51 @@ from lib.http_exception import (
 )
 from lib.jwt import TokenPayload, parse_jwt
 from lib.crypto import verify_password
-from services.pg_client import _PGClient
 from models import User
 from config import _Config
 
 config = _Config()
-pg_client = _PGClient()
 
 
-def authenticate(
-    access_token: str | None = Cookie(default=None, include_in_schema=False)
-):
-    return get_user_from_token(access_token)
+def require_authenticated(
+    db: Session = Depends(depends_get_db),
+    access_token: str | None = Cookie(default=None, include_in_schema=False),
+) -> User:
+    try:
+        user: User = get_user_from_token(db, access_token)
+        return user
+    except UserNotFoundException as e:
+        if access_token:
+            get_api_logger().info(f"Deleting access token {access_token[:3]}***")
+            e.clear_cookie = True
+        raise e
 
 
-def user_exists(identifier: str):
-    user = pg_client.get_user(identifier)
+def require_unauthenticated(
+    db: Session = Depends(depends_get_db),
+    access_token: str | None = Cookie(default=None, include_in_schema=False),
+) -> None:
+    try:
+        get_user_from_token(db, access_token)
+        raise HTTPException(status_code=403, detail="Already authenticated.")
+    except Exception:
+        return None
+
+
+def user_exists(db: Session, identifier: str):
+    user = get_user(db, identifier)
     return bool(user)
 
 
-def validate_credentials(identifier: str, password: str) -> User:
-    user: User | None = pg_client.get_user(identifier)
+def is_user_verified(db: Session, identifier: str):
+    user = get_user(db, identifier)
+    if not user:
+        raise UserNotFoundException
+    return bool(user.verified)
+
+
+def validate_credentials(db: Session, identifier: str, password: str) -> User:
+    user: User | None = get_user(db, identifier)
 
     # Check user exists
     if not user:
@@ -53,12 +79,12 @@ def validate_credentials(identifier: str, password: str) -> User:
     return user
 
 
-def get_user_from_token(access_token: str | None):
+def get_user_from_token(db: Session, access_token: str | None):
     jwt_data: TokenPayload = parse_jwt(access_token)
     username = jwt_data.get("sub")
     if username is None:
         raise UserNotFoundException
-    user: User | None = pg_client.get_user(username)
+    user: User | None = get_user(db, username)
     if not user:
         raise UserNotFoundException
     return user

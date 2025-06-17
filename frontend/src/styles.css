@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+main {
+  @apply flex flex-1 justify-center align-middle size-full p-8 md:p-0;
+}
+
 body {
   @apply bg-white dark:bg-gray-950 text-black dark:text-white;
 }

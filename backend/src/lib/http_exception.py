@@ -25,5 +25,6 @@ class UnverifiedException(HTTPException):
 
 
 class UserNotFoundException(HTTPException):
-    def __init__(self) -> None:
-        super().__init__(status_code=404, detail="User not found.")
+    def __init__(self, detail: str = "User not found", clear_cookie: bool = False):
+        super().__init__(status_code=401, detail=detail)
+        self.clear_cookie = clear_cookie

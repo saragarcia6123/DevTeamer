@@ -7,8 +7,8 @@ from lib.validators import validate_name, validate_password, validate_username
 class UserBase(SQLModel):
     email: EmailStr
     username: str = Field(..., min_length=3, max_length=50)
-    first_name: str = Field(max_length=50)
-    last_name: str = Field(max_length=50)
+    first_name: str = Field(nullable=True, max_length=50)
+    last_name: str = Field(nullable=True, max_length=50)
 
     @field_validator("username")
     @classmethod
@@ -23,9 +23,9 @@ class UserBase(SQLModel):
 
 class User(UserBase, table=True):
     __tablename__: str = "users"
-    id: int | None = Field(default=None, primary_key=True)
+    id: int = Field(default=None, primary_key=True)
     hashed_password: str
-    verified: bool
+    verified: bool = Field(default=False)
 
 
 class UserCreate(UserBase):
@@ -44,7 +44,7 @@ class UserRead(UserBase):
 
 class UserUpdate(UserBase):
     username: str | None = Field(None, min_length=3, max_length=50)
-    first_name: str | None = Field(None, min_length=1, max_length=100)
-    last_name: str | None = Field(None, min_length=1, max_length=100)
+    first_name: str | None = Field(None, nullable=True, max_length=100)
+    last_name: str | None = Field(None, nullable=True, max_length=100)
 
     email: EmailStr = Field(exclude=True)

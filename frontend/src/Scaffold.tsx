@@ -8,9 +8,7 @@ export default function Scaffold({ children }: { children: ReactNode }) {
     return <UserProvider>
         <div className="min-h-screen flex flex-col">
             <Header />
-            <main className="flex flex-1 justify-center align-middle size-full p-8 md:p-0">
-                {children}
-            </main>
+            <main>{children}</main>
             <Footer />
         </div>
     </UserProvider>

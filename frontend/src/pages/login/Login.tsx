@@ -1,19 +1,24 @@
 import { useContext, useEffect, useRef, useState } from "react";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, useSearch } from "@tanstack/react-router";
 import z from "zod";
 import { UserContext, useUserContext } from "@/contexts/userContext";
-import { login, userExists } from "@/api/fetch";
 import ResendVerify from "@/components/ResendVerify";
 import { HTTPError } from "@/api/http_error";
+import { login } from "@/api/routes/auth";
+import { userExists, userVerified } from "@/api/routes/users";
+import { ROUTES } from "@/routes";
 
 export default function Login() {
 
   const { user } = useUserContext();
   const navigate = useNavigate();
 
+  const search = useSearch({ from: ROUTES.login });
+  const qEmail = search.email ?? null;
+
   useEffect(() => {
     if (user) {
-      navigate({ to: "/profile" });
+      navigate({ to: ROUTES.profile });
     }
   }, [user, navigate]);
 
@@ -51,7 +56,10 @@ export default function Login() {
       if (exists) {
         setStep("password");
       } else {
-        navigate({ to: "/register", search: { email } });
+        navigate({
+          to: ROUTES.register,
+          search: { email: email }
+        });
       }
     } catch (err: any) {
       if (err instanceof HTTPError) {
@@ -78,12 +86,14 @@ export default function Login() {
 
     try {
       await login(email!, password);
-      navigate({ to: `/confirm-login?email=${email}` })
+      navigate({ to: `${ROUTES.confirmLogin}?email=${email}` })
     } catch (err) {
       if (err instanceof HTTPError) {
-        setError(err.message);
-        if (err.statusCode === 403) {
+        const verified = await userVerified(email!);
+        if (!verified) {
           setUnverified(true)
+        } else {
+          setError(err.message);
         }
       } else {
         setError(String(err));
@@ -100,6 +110,7 @@ export default function Login() {
           name="email"
           ref={emailInput}
           placeholder="Email"
+          defaultValue={qEmail || ""}
           required
         />
         {step === "password" && (
