@@ -17,7 +17,7 @@ This project uses [FastAPI](https://fastapi.tiangolo.com/) for the backend and [
 ```sh
 cp ./frontend/.env.example ./frontend/.env
 cp ./backend/.env.example ./backend/.env
-cp ./.env.example ./.env
+cp ./db/.env.example ./db/.env
 ```
 
 *As of right now, the example `.env` configuration should work as-is*
