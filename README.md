@@ -1,8 +1,8 @@
-# DevTeamer - Find devs to collab with
+# DevPortal
 
 [![wakatime](https://wakatime.com/badge/user/961b9b73-7fbd-42ec-8eac-034f364eaeaf/project/4aecf67f-d5c4-46f7-9196-7e2542fcfa0f.svg)](https://wakatime.com/badge/user/961b9b73-7fbd-42ec-8eac-034f364eaeaf/project/4aecf67f-d5c4-46f7-9196-7e2542fcfa0f)
 
-This project uses [FastAPI](https://fastapi.tiangolo.com/) for the backend and [React](https://react.dev/) for the frontend
+## A sophisticated login portal made with [FastAPI](https://fastapi.tiangolo.com/) and [React](https://react.dev/)
 
 ## Running Locally
 
@@ -22,16 +22,25 @@ cp ./db/.env.example ./db/.env
 
 *As of right now, the example `.env` configuration should work as-is*
 
+#### Install node modules
+
+```sh
+cd frontend
+npm install
+cd ..
+```
+
 #### Run Command
 
 ```sh
 docker compose up --build
 ```
 
+Wait for the message 'VITE v6.x.x  ready in xxx ms' to appear (this should take around 20-30 seconds)
+
 *Frontend URL - <http://localhost:3000>*
 
 *Backend docs URL — <http://localhost:8000/docs>*
-
 
 
 ## Direct connection to the databases via CLI
